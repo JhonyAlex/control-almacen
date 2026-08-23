@@ -29,7 +29,7 @@ export const listOrdersResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
 
 
 export const ListOrdersResponseItem = zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "estado": zod.enum(['ACTIVA', 'FINALIZADA']),
   "metrosFabricados": zod.number(),
   "metrosPendientes": zod.number(),
@@ -66,7 +66,7 @@ export const createOrderResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
 
 
 export const CreateOrderResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "estado": zod.enum(['ACTIVA', 'FINALIZADA']),
   "metrosFabricados": zod.number(),
   "metrosPendientes": zod.number(),
@@ -85,7 +85,7 @@ export const CreateOrderResponse = zod.object({
  * @summary Delete an active production order
  */
 export const DeleteOrderParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const DeleteOrderResponse = zod.void()
@@ -97,11 +97,11 @@ export const DeleteOrderResponse = zod.void()
 export const ListInventoryResponse = zod.object({
   "totalMetros": zod.number(),
   "items": zod.array(zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "tipo": zod.enum(['BOBINA', 'RESTO']),
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
-  "ordenId": zod.int().nullish(),
+  "ordenId": zod.number().nullish(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -120,16 +120,16 @@ export const addManufacturedCoilBodyMetrosExclusiveMin = 0;
 
 
 export const AddManufacturedCoilBody = zod.object({
-  "ordenId": zod.int(),
+  "ordenId": zod.number(),
   "metros": zod.number().gt(addManufacturedCoilBodyMetrosExclusiveMin)
 })
 
 export const AddManufacturedCoilResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "tipo": zod.enum(['BOBINA', 'RESTO']),
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
-  "ordenId": zod.int().nullish(),
+  "ordenId": zod.number().nullish(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -156,11 +156,11 @@ export const AddProductionRemnantBody = zod.object({
 }))
 
 export const AddProductionRemnantResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "tipo": zod.enum(['BOBINA', 'RESTO']),
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
-  "ordenId": zod.int().nullish(),
+  "ordenId": zod.number().nullish(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -174,15 +174,15 @@ export const AddProductionRemnantResponse = zod.object({
  * @summary Mark a warehouse item as in factory
  */
 export const ConsumeInventoryItemParams = zod.object({
-  "id": zod.coerce.number().int()
+  "id": zod.coerce.number()
 })
 
 export const ConsumeInventoryItemResponse = zod.object({
-  "id": zod.int(),
+  "id": zod.number(),
   "tipo": zod.enum(['BOBINA', 'RESTO']),
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
-  "ordenId": zod.int().nullish(),
+  "ordenId": zod.number().nullish(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),

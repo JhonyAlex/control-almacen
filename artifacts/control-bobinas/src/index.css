@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -78,72 +79,45 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  --background: red; /*replace with H S L */
+  --background: 42 29% 95%;
+  --foreground: 176 29% 16%;
+  --border: 40 17% 82%;
+  --card: 45 33% 98%;
+  --card-foreground: 176 29% 16%;
+  --card-border: 40 17% 82%;
+  --sidebar: 177 31% 17%;
+  --sidebar-foreground: 42 29% 95%;
+  --sidebar-border: 176 25% 25%;
+  --sidebar-primary: 39 94% 52%;
+  --sidebar-primary-foreground: 176 29% 16%;
+  --sidebar-accent: 176 25% 24%;
+  --sidebar-accent-foreground: 42 29% 95%;
+  --sidebar-ring: 39 94% 52%;
+  --popover: 45 33% 98%;
+  --popover-foreground: 176 29% 16%;
+  --popover-border: 40 17% 82%;
+  --primary: 177 47% 27%;
+  --primary-foreground: 42 29% 96%;
+  --secondary: 39 42% 89%;
+  --secondary-foreground: 176 29% 16%;
+  --muted: 42 21% 90%;
+  --muted-foreground: 175 13% 42%;
+  --accent: 39 94% 52%;
+  --accent-foreground: 176 29% 16%;
+  --destructive: 3 62% 44%;
+  --destructive-foreground: 45 33% 98%;
+  --input: 40 17% 76%;
+  --ring: 39 94% 52%;
+  --chart-1: 177 47% 27%;
+  --chart-2: 39 94% 52%;
+  --chart-3: 15 63% 50%;
+  --chart-4: 177 31% 48%;
+  --chart-5: 42 21% 58%;
 
-  --foreground: red; /*replace with H S L */
-
-  --border: red; /*replace with H S L */
-
-  --card: red; /*replace with H S L */
-
-  --card-foreground: red; /*replace with H S L */
-
-  --card-border: red; /*replace with H S L */
-
-  --sidebar: red; /*replace with H S L */
-
-  --sidebar-foreground: red; /*replace with H S L */
-
-  --sidebar-border: red; /*replace with H S L */
-
-  --sidebar-primary: red; /*replace with H S L */
-
-  --sidebar-primary-foreground: red; /*replace with H S L */
-
-  --sidebar-accent: red; /*replace with H S L */
-
-  --sidebar-accent-foreground: red; /*replace with H S L */
-
-  --sidebar-ring: red; /*replace with H S L */
-
-  --popover: red; /*replace with H S L */
-
-  --popover-foreground: red; /*replace with H S L */
-
-  --popover-border: red; /*replace with H S L */
-
-  --primary: red; /*replace with H S L */
-
-  --primary-foreground: red; /*replace with H S L */
-
-  --secondary: red; /*replace with H S L */
-
-  --secondary-foreground: red; /*replace with H S L */
-
-  --muted: red; /*replace with H S L */
-
-  --muted-foreground: red; /*replace with H S L */
-
-  --accent: red; /*replace with H S L */
-
-  --accent-foreground: red; /*replace with H S L */
-
-  --destructive: red; /*replace with H S L */
-
-  --destructive-foreground: red; /*replace with H S L */
-
-  --input: red; /*replace with H S L */
-  --ring: red; /*replace with H S L */
-  --chart-1: red; /*replace with H S L */
-  --chart-2: red; /*replace with H S L */
-  --chart-3: red; /*replace with H S L */
-  --chart-4: red; /*replace with H S L */
-  --chart-5: red; /*replace with H S L */
-
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'IBM Plex Sans', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: 0.5rem; /* 8px */
+  --app-font-mono: 'IBM Plex Mono', monospace;
+  --radius: 0.65rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0); /*replace with H S L */
   --shadow-sm:
@@ -227,68 +201,40 @@
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --background: red; /*replace with H S L */
-
-  --foreground: red; /*replace with H S L */
-
-  --border: red; /*replace with H S L */
-
-  --card: red; /*replace with H S L */
-
-  --card-foreground: red; /*replace with H S L */
-
-  --card-border: red; /*replace with H S L */
-
-  --sidebar: red; /*replace with H S L */
-
-  --sidebar-foreground: red; /*replace with H S L */
-
-  --sidebar-border: red; /*replace with H S L */
-
-  --sidebar-primary: red; /*replace with H S L */
-
-  --sidebar-primary-foreground: red; /*replace with H S L */
-
-  --sidebar-accent: red; /*replace with H S L */
-
-  --sidebar-accent-foreground: red; /*replace with H S L */
-
-  --sidebar-ring: red; /*replace with H S L */
-
-  --popover: red; /*replace with H S L */
-
-  --popover-foreground: red; /*replace with H S L */
-
-  --popover-border: red; /*replace with H S L */
-
-  --primary: red; /*replace with H S L */
-
-  --primary-foreground: red; /*replace with H S L */
-
-  --secondary: red; /*replace with H S L */
-
-  --secondary-foreground: red; /*replace with H S L */
-
-  --muted: red; /*replace with H S L */
-
-  --muted-foreground: red; /*replace with H S L */
-
-  --accent: red; /*replace with H S L */
-
-  --accent-foreground: red; /*replace with H S L */
-
-  --destructive: red; /*replace with H S L */
-
-  --destructive-foreground: red; /*replace with H S L */
-
-  /* Used as the border around inputs. Dark mode: Should be a border that is light enough to have high contrast when rendered on a --card background. More contrast than standard --border */
-  --input: red; /*replace with H S L */
-  --ring: red; /*replace with H S L */
-  --chart-1: red; /*replace with H S L */
-  --chart-2: red; /*replace with H S L */
-  --chart-3: red; /*replace with H S L */
-  --chart-4: red; /*replace with H S L */
-  --chart-5: red; /*replace with H S L */
+  --background: 176 25% 11%;
+  --foreground: 42 29% 94%;
+  --border: 176 18% 25%;
+  --card: 176 24% 15%;
+  --card-foreground: 42 29% 94%;
+  --card-border: 176 18% 25%;
+  --sidebar: 176 31% 10%;
+  --sidebar-foreground: 42 29% 94%;
+  --sidebar-border: 176 18% 22%;
+  --sidebar-primary: 39 94% 52%;
+  --sidebar-primary-foreground: 176 29% 16%;
+  --sidebar-accent: 176 24% 20%;
+  --sidebar-accent-foreground: 42 29% 94%;
+  --sidebar-ring: 39 94% 52%;
+  --popover: 176 24% 15%;
+  --popover-foreground: 42 29% 94%;
+  --popover-border: 176 18% 25%;
+  --primary: 39 94% 52%;
+  --primary-foreground: 176 29% 16%;
+  --secondary: 176 24% 20%;
+  --secondary-foreground: 42 29% 94%;
+  --muted: 176 20% 19%;
+  --muted-foreground: 42 15% 68%;
+  --accent: 39 94% 52%;
+  --accent-foreground: 176 29% 16%;
+  --destructive: 3 62% 55%;
+  --destructive-foreground: 176 29% 10%;
+  --input: 176 18% 31%;
+  --ring: 39 94% 52%;
+  --chart-1: 39 94% 52%;
+  --chart-2: 177 47% 50%;
+  --chart-3: 15 63% 58%;
+  --chart-4: 177 31% 60%;
+  --chart-5: 42 21% 68%;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
@@ -429,5 +375,83 @@
   .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
+  }
+}
+
+@layer base {
+  html {
+    background: hsl(var(--background));
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+
+  .font-data {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .industrial-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .safety-stripe {
+    background: repeating-linear-gradient(
+      -45deg,
+      hsl(var(--accent)) 0,
+      hsl(var(--accent)) 7px,
+      hsl(var(--foreground)) 7px,
+      hsl(var(--foreground)) 14px
+    );
+  }
+
+  .pressable {
+    transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .pressable:active {
+    transform: translateY(1px);
+  }
+
+  .load-in {
+    animation: load-in 420ms ease both;
+  }
+
+  .load-in-delay {
+    animation: load-in 520ms 90ms ease both;
+  }
+
+  @keyframes load-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

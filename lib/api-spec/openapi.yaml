@@ -75,7 +75,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       responses:
         "204":
           description: Deleted
@@ -141,7 +141,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
+            type: number
       responses:
         "200":
           description: Consumed item
@@ -199,7 +199,7 @@ components:
           required: [id, estado, metrosFabricados, metrosPendientes, creadoEn]
           properties:
             id:
-              type: integer
+              type: number
             estado:
               $ref: "#/components/schemas/OrderStatus"
             metrosFabricados:
@@ -215,7 +215,7 @@ components:
       required: [ordenId, metros]
       properties:
         ordenId:
-          type: integer
+          type: number
         metros:
           type: number
           exclusiveMinimum: 0
@@ -234,7 +234,7 @@ components:
           required: [id, tipo, metros, estado, creadoEn]
           properties:
             id:
-              type: integer
+              type: number
             tipo:
               type: string
               enum: [BOBINA, RESTO]
@@ -243,7 +243,7 @@ components:
             estado:
               $ref: "#/components/schemas/CoilStatus"
             ordenId:
-              type: ["integer", "null"]
+              type: ["number", "null"]
             creadoEn:
               type: string
               format: date-time
