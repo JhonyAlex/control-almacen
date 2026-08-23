@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: orders
+    description: Production orders
+  - name: inventory
+    description: Warehouse coils and remnants
 paths:
   /healthz:
     get:
@@ -24,6 +28,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List production orders
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+      responses:
+        "200":
+          description: Production orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionOrder"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a production order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionOrder"
+  /orders/{id}:
+    delete:
+      operationId: deleteOrder
+      tags: [orders]
+      summary: Delete an active production order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Order not found
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      summary: List available warehouse material
+      responses:
+        "200":
+          description: Inventory and total meters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventorySummary"
+  /inventory/coils:
+    post:
+      operationId: addManufacturedCoil
+      tags: [inventory]
+      summary: Add a manufactured coil against an active order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManufacturedCoilInput"
+      responses:
+        "201":
+          description: Created coil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+        "400":
+          description: Invalid meters or inactive order
+  /inventory/remnants:
+    post:
+      operationId: addProductionRemnant
+      tags: [inventory]
+      summary: Add a production remnant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemnantInput"
+      responses:
+        "201":
+          description: Created remnant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+  /inventory/{id}/consume:
+    post:
+      operationId: consumeInventoryItem
+      tags: [inventory]
+      summary: Mark a warehouse item as in factory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Consumed item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+        "404":
+          description: Item not available
 components:
   schemas:
     HealthStatus:
@@ -33,4 +160,102 @@ components:
           type: string
       required:
         - status
+    OrderStatus:
+      type: string
+      enum: [ACTIVA, FINALIZADA]
+    CoilStatus:
+      type: string
+      enum: [DISPONIBLE, EN FÁBRICA]
+    Camisa:
+      type: string
+      enum: [400, 475, 520, 22-6-22, 21-8-21, 40-6-40, 40-8-40, 47-5-47, 47-8-47, 52-8-52]
+    Material:
+      type: string
+      enum: [OPP, OPP RECICLADO]
+    CoilCharacteristics:
+      type: object
+      required: [ancho, micras, camisa, material]
+      properties:
+        ancho:
+          type: number
+        micras:
+          type: number
+        camisa:
+          $ref: "#/components/schemas/Camisa"
+        material:
+          $ref: "#/components/schemas/Material"
+    OrderInput:
+      allOf:
+        - $ref: "#/components/schemas/CoilCharacteristics"
+        - type: object
+          required: [metrosNecesarios]
+          properties:
+            metrosNecesarios:
+              type: number
+              exclusiveMinimum: 0
+    ProductionOrder:
+      allOf:
+        - type: object
+          required: [id, estado, metrosFabricados, metrosPendientes, creadoEn]
+          properties:
+            id:
+              type: integer
+            estado:
+              $ref: "#/components/schemas/OrderStatus"
+            metrosFabricados:
+              type: number
+            metrosPendientes:
+              type: number
+            creadoEn:
+              type: string
+              format: date-time
+        - $ref: "#/components/schemas/OrderInput"
+    ManufacturedCoilInput:
+      type: object
+      required: [ordenId, metros]
+      properties:
+        ordenId:
+          type: integer
+        metros:
+          type: number
+          exclusiveMinimum: 0
+    RemnantInput:
+      allOf:
+        - $ref: "#/components/schemas/CoilCharacteristics"
+        - type: object
+          required: [metros]
+          properties:
+            metros:
+              type: number
+              exclusiveMinimum: 0
+    Coil:
+      allOf:
+        - type: object
+          required: [id, tipo, metros, estado, creadoEn]
+          properties:
+            id:
+              type: integer
+            tipo:
+              type: string
+              enum: [BOBINA, RESTO]
+            metros:
+              type: number
+            estado:
+              $ref: "#/components/schemas/CoilStatus"
+            ordenId:
+              type: ["integer", "null"]
+            creadoEn:
+              type: string
+              format: date-time
+        - $ref: "#/components/schemas/CoilCharacteristics"
+    InventorySummary:
+      type: object
+      required: [totalMetros, items]
+      properties:
+        totalMetros:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coil"
 
