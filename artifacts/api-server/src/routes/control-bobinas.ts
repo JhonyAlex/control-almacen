@@ -5,7 +5,10 @@ import {
   AddProductionRemnantBody,
   ConsumeInventoryItemParams,
   CreateOrderBody,
+  UpdateOrderBody,
+  UpdateOrderParams,
   DeleteOrderParams,
+  ListOrderCoilsParams,
   ListOrdersQueryParams,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
@@ -27,6 +30,7 @@ const orderView = (order: typeof productionOrders.$inferSelect, fabricados: numb
   metrosPendientes: Math.max(0, numeric(order.metrosNecesarios) - fabricados),
   estado: fabricados >= numeric(order.metrosNecesarios) ? "FINALIZADA" : "ACTIVA",
   creadoEn: order.creadoEn.toISOString(),
+  finalizadaEn: order.finalizadaEn?.toISOString() ?? null,
 });
 
 async function ordersWithTotals(status?: string) {
@@ -87,6 +91,62 @@ router.delete("/orders/:id", async (req, res, next) => {
   }
 });
 
+router.patch("/orders/:id", async (req, res, next) => {
+  try {
+    const { id } = UpdateOrderParams.parse({ id: Number(req.params.id) });
+    const body = UpdateOrderBody.parse(req.body);
+    if (!CAMISAS.has(String(body.camisa)) || !MATERIALES.has(body.material)) {
+      res.status(400).json({ error: "Características no válidas" });
+      return;
+    }
+    const [current] = await db.select().from(productionOrders).where(eq(productionOrders.id, id));
+    if (!current) {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+    if (current.estado !== "ACTIVA") {
+      res.status(400).json({ error: "Solo se pueden editar órdenes activas" });
+      return;
+    }
+    const [{ total }] = await db.select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` }).from(coils).where(eq(coils.ordenId, id));
+    if (numeric(total) > Number(body.metrosNecesarios)) {
+      res.status(400).json({ error: "Los metros necesarios no pueden ser inferiores a los ya fabricados" });
+      return;
+    }
+    const [updated] = await db.update(productionOrders).set({
+      ancho: String(body.ancho),
+      micras: String(body.micras),
+      camisa: String(body.camisa),
+      material: body.material,
+      metrosNecesarios: String(body.metrosNecesarios),
+    }).where(eq(productionOrders.id, id)).returning();
+    res.json(orderView(updated, numeric(total)));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/orders/:id/coils", async (req, res, next) => {
+  try {
+    const { id } = ListOrderCoilsParams.parse({ id: Number(req.params.id) });
+    const items = await db.select().from(coils).where(eq(coils.ordenId, id)).orderBy(asc(coils.id));
+    res.json(items.map((item) => ({
+      id: item.id,
+      tipo: item.tipo,
+      metros: numeric(item.metros),
+      ancho: numeric(item.ancho),
+      micras: numeric(item.micras),
+      camisa: item.camisa,
+      material: item.material,
+      estado: item.estado,
+      ordenId: item.ordenId,
+      creadoEn: item.creadoEn.toISOString(),
+    })));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/inventory", async (_req, res, next) => {
   try {
     const items = await db.select().from(coils).where(eq(coils.estado, "DISPONIBLE")).orderBy(asc(coils.id));
@@ -128,7 +188,7 @@ router.post("/inventory/coils", async (req, res, next) => {
       }).returning();
       const [{ total }] = await tx.select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` }).from(coils).where(eq(coils.ordenId, order.id));
       if (numeric(total) >= numeric(order.metrosNecesarios)) {
-        await tx.update(productionOrders).set({ estado: "FINALIZADA" }).where(eq(productionOrders.id, order.id));
+        await tx.update(productionOrders).set({ estado: "FINALIZADA", finalizadaEn: new Date() }).where(eq(productionOrders.id, order.id));
       }
       return created;
     });

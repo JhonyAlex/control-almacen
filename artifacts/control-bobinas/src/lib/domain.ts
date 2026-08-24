@@ -23,15 +23,16 @@ export const characteristicsLabel = (item: Coil | ProductionOrder) =>
   `${item.ancho} mm · ${item.micras} µ · camisa ${item.camisa} · ${item.material}`;
 
 export const groupInventory = (items: Coil[]) => {
-  const groups = new Map<string, Coil & { count: number; total: number }>();
+  const groups = new Map<string, Coil & { count: number; total: number; items: Coil[] }>();
   items.forEach((item) => {
     const key = `${item.ancho}-${item.micras}-${item.camisa}-${item.material}`;
     const existing = groups.get(key);
     if (existing) {
       existing.count += 1;
       existing.total += item.metros;
+      existing.items.push(item);
     } else {
-      groups.set(key, { ...item, count: 1, total: item.metros });
+      groups.set(key, { ...item, count: 1, total: item.metros, items: [item] });
     }
   });
   return Array.from(groups.values()).sort((a, b) => b.total - a.total);

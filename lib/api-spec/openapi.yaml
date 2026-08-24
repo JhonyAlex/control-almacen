@@ -66,6 +66,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProductionOrder"
   /orders/{id}:
+    patch:
+      operationId: updateOrder
+      tags: [orders]
+      summary: Edit an active production order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionOrder"
+        "400":
+          description: Only active orders can be edited
+        "404":
+          description: Order not found
     delete:
       operationId: deleteOrder
       tags: [orders]
@@ -81,6 +108,26 @@ paths:
           description: Deleted
         "404":
           description: Order not found
+  /orders/{id}/coils:
+    get:
+      operationId: listOrderCoils
+      tags: [orders]
+      summary: List all coils belonging to an order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Order coils
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coil"
   /inventory:
     get:
       operationId: listInventory
@@ -196,7 +243,7 @@ components:
     ProductionOrder:
       allOf:
         - type: object
-          required: [id, estado, metrosFabricados, metrosPendientes, creadoEn]
+          required: [id, estado, metrosFabricados, metrosPendientes, creadoEn, finalizadaEn]
           properties:
             id:
               type: number
@@ -208,6 +255,9 @@ components:
               type: number
             creadoEn:
               type: string
+              format: date-time
+            finalizadaEn:
+              type: ["string", "null"]
               format: date-time
         - $ref: "#/components/schemas/OrderInput"
     ManufacturedCoilInput:

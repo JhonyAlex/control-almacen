@@ -33,7 +33,8 @@ export const ListOrdersResponseItem = zod.object({
   "estado": zod.enum(['ACTIVA', 'FINALIZADA']),
   "metrosFabricados": zod.number(),
   "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -70,7 +71,8 @@ export const CreateOrderResponse = zod.object({
   "estado": zod.enum(['ACTIVA', 'FINALIZADA']),
   "metrosFabricados": zod.number(),
   "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -82,6 +84,47 @@ export const CreateOrderResponse = zod.object({
 
 
 /**
+ * @summary Edit an active production order
+ */
+export const UpdateOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateOrderBodyTwoMetrosNecesariosExclusiveMin = 0;
+
+
+
+export const UpdateOrderBody = zod.object({
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
+  "material": zod.enum(['OPP', 'OPP RECICLADO'])
+}).and(zod.object({
+  "metrosNecesarios": zod.number().gt(updateOrderBodyTwoMetrosNecesariosExclusiveMin)
+}))
+
+export const updateOrderResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
+
+
+
+export const UpdateOrderResponse = zod.object({
+  "id": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'FINALIZADA']),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
+}).and(zod.object({
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
+  "material": zod.enum(['OPP', 'OPP RECICLADO'])
+}).and(zod.object({
+  "metrosNecesarios": zod.number().gt(updateOrderResponseTwoTwoMetrosNecesariosExclusiveMin)
+})))
+
+
+/**
  * @summary Delete an active production order
  */
 export const DeleteOrderParams = zod.object({
@@ -89,6 +132,29 @@ export const DeleteOrderParams = zod.object({
 })
 
 export const DeleteOrderResponse = zod.void()
+
+
+/**
+ * @summary List all coils belonging to an order
+ */
+export const ListOrderCoilsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListOrderCoilsResponseItem = zod.object({
+  "id": zod.number(),
+  "tipo": zod.enum(['BOBINA', 'RESTO']),
+  "metros": zod.number(),
+  "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
+  "ordenId": zod.number().nullish(),
+  "creadoEn": zod.coerce.date()
+}).and(zod.object({
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
+  "material": zod.enum(['OPP', 'OPP RECICLADO'])
+}))
+export const ListOrderCoilsResponse = zod.array(ListOrderCoilsResponseItem)
 
 
 /**

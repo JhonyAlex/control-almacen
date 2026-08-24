@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowUpRight, Check, CirclePlus, Factory, Layers3, PackageCheck, RefreshCw, Send, TriangleAlert } from 'lucide-react';
+import { AlertTriangle, Check, CirclePlus, Factory, Layers3, PackageCheck, RefreshCw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
 import {
   CoilTipo,
   getListInventoryQueryKey,
@@ -96,7 +96,7 @@ function Home() {
         {inventoryQuery.isError && !inventoryQuery.isLoading && <QueryError onRetry={refreshInventory} />}
         {!inventoryQuery.isLoading && !inventoryQuery.isError && (
           <>
-            <section className="load-in-delay grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
+            <section className="load-in-delay">
               <div className="relative overflow-hidden rounded-xl bg-primary p-6 text-primary-foreground shadow-lg sm:p-8">
                 <div className="absolute right-[-28px] top-[-42px] h-48 w-48 rounded-full border-[22px] border-primary-foreground/10" />
                 <div className="absolute bottom-[-80px] right-[90px] h-56 w-56 rounded-full border-[1px] border-primary-foreground/10" />
@@ -106,28 +106,19 @@ function Home() {
                   <div className="mt-8 flex items-center gap-2 border-t border-primary-foreground/15 pt-4 text-xs text-primary-foreground/70"><PackageCheck size={16} /> {items.length} unidades registradas <span className="ml-auto font-data text-[10px] uppercase tracking-wider">Actualizado ahora</span></div>
                 </div>
               </div>
-              <div className="rounded-xl border border-border bg-card p-6 sm:p-8">
-                <p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Lectura rápida</p>
-                <div className="mt-6 space-y-5">
-                  <div><div className="flex items-end justify-between"><span className="text-sm text-muted-foreground">Referencias activas</span><span className="font-data text-2xl font-semibold text-foreground" data-testid="text-reference-count">{groups.length.toString().padStart(2, '0')}</span></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full w-[68%] rounded-full bg-accent" /></div></div>
-                  <div className="flex items-center justify-between border-t border-border pt-4"><span className="text-sm text-muted-foreground">Bobinas completas</span><span className="font-data text-lg font-semibold" data-testid="text-coil-count">{items.filter((item) => item.tipo === CoilTipo.BOBINA).length}</span></div>
-                  <div className="flex items-center justify-between border-t border-border pt-4"><span className="text-sm text-muted-foreground">Restos aprovechables</span><span className="font-data text-lg font-semibold" data-testid="text-remnant-count">{items.filter((item) => item.tipo === CoilTipo.RESTO).length}</span></div>
-                </div>
-              </div>
             </section>
 
             <section className="mt-10">
-              <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Inventario agrupado</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Material disponible</h2></div><span className="hidden font-data text-[10px] uppercase tracking-wider text-muted-foreground sm:block">Ancho / micras / camisa / material</span></div>
+              <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Agrupación por características</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Bobinas en almacén</h2></div><span className="hidden font-data text-[10px] uppercase tracking-wider text-muted-foreground sm:block">Ancho / micras / camisa / material</span></div>
               {groups.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-14 text-center" data-testid="empty-inventory"><PackageCheck className="mx-auto text-muted-foreground" size={30} /><h3 className="mt-3 font-display text-2xl uppercase">Almacén vacío</h3><p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Añade una bobina fabricada o registra un resto para empezar.</p></div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {groups.map((group) => (
-                    <div key={`${group.ancho}-${group.micras}-${group.camisa}-${group.material}`} className="group rounded-xl border border-border bg-card p-5 transition hover:border-primary/40" data-testid={`card-inventory-group-${group.id}`}>
-                      <div className="flex items-start justify-between gap-4"><div><span className="font-data text-[10px] font-semibold uppercase tracking-[.12em] text-primary">{group.material}</span><h3 className="mt-2 font-display text-3xl font-semibold leading-none">{group.ancho} <span className="text-base font-medium text-muted-foreground">mm</span></h3></div><span className="rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold text-muted-foreground">{group.count} {group.count === 1 ? 'unidad' : 'unidades'}</span></div>
-                      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4"><div><p className="text-[11px] text-muted-foreground">Micras</p><p className="mt-1 font-data text-sm font-semibold">{group.micras} µ</p></div><div><p className="text-[11px] text-muted-foreground">Camisa</p><p className="mt-1 font-data text-sm font-semibold">{group.camisa}</p></div></div>
-                      <div className="mt-5 flex items-end justify-between"><div><p className="text-[11px] text-muted-foreground">Metros totales</p><p className="mt-0.5 font-data text-2xl font-semibold">{formatMeters(group.total)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div><ArrowUpRight size={18} className="text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" /></div>
-                    </div>
+                    <details key={`${group.ancho}-${group.micras}-${group.camisa}-${group.material}`} className="group rounded-xl border border-border bg-card transition open:border-primary/40" data-testid={`card-inventory-group-${group.id}`}>
+                      <summary className="flex min-h-[116px] cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden"><div><span className="font-data text-[10px] font-semibold uppercase tracking-[.12em] text-primary">{group.material}</span><h3 className="mt-2 font-display text-3xl font-semibold leading-none">{group.ancho} <span className="text-base font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">·</span>{group.micras} <span className="text-base font-medium text-muted-foreground">µ</span></h3><p className="mt-2 text-xs text-muted-foreground">Camisa {group.camisa} · {group.count} {group.count === 1 ? 'unidad' : 'unidades'} · {formatMeters(group.total)} m</p></div><ChevronDown size={22} className="shrink-0 text-muted-foreground transition group-open:rotate-180" /></summary>
+                      <div className="border-t border-border px-5 pb-4">{group.items.map((item) => <div key={item.id} className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'} <span className="font-data font-normal">{formatMeters(item.metros)} m</span></p><p className="mt-1 text-xs text-muted-foreground">Entrada {new Date(item.creadoEn).toLocaleDateString('es-ES')}</p></div><button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button></div>)}</div>
+                    </details>
                   ))}
                 </div>
               )}

@@ -17,6 +17,7 @@ export const productionOrders = pgTable("production_orders", {
   metrosNecesarios: numeric("metros_necesarios", { precision: 14, scale: 2 }).notNull(),
   estado: text("estado").notNull().default("ACTIVA"),
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  finalizadaEn: timestamp("finalizada_en", { withTimezone: true }),
 });
 
 export const coils = pgTable("coils", {

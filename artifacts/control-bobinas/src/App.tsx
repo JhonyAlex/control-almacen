@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import Finalized from '@/pages/finalized';
 import Home from '@/pages/home';
+import Material from '@/pages/material';
 import NotFound from '@/pages/not-found';
 import Production from '@/pages/production';
 import {
@@ -25,6 +26,7 @@ function Router() {
       <Shell>
         <Switch>
           <Route path="/" component={Home} />
+          <Route path="/material" component={Material} />
           <Route path="/produccion" component={Production} />
           <Route path="/finalizadas" component={Finalized} />
           <Route component={NotFound} />

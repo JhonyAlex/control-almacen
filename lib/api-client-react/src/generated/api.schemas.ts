@@ -61,13 +61,15 @@ export type OrderInput = CoilCharacteristics & {
   metrosNecesarios: number;
 };
 
-export type ProductionOrder = OrderInput & {
+export type ProductionOrder = OrderInput & ({
   id: number;
   estado: OrderStatus;
   metrosFabricados: number;
   metrosPendientes: number;
   creadoEn: string;
-};
+  /** @nullable */
+  finalizadaEn: string | null;
+});
 
 export interface ManufacturedCoilInput {
   ordenId: number;

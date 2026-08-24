@@ -1,9 +1,10 @@
 import { type ReactNode } from 'react';
-import { Boxes, ClipboardList, History, Warehouse, Activity, Clock3 } from 'lucide-react';
+import { Boxes, ClipboardList, History, Warehouse, Activity, Layers3 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 
 const navItems = [
   { href: '/', label: 'Almacén', short: 'Stock', icon: Warehouse },
+  { href: '/material', label: 'Material', short: 'Material', icon: Layers3 },
   { href: '/produccion', label: 'Producción', short: 'Órdenes', icon: ClipboardList },
   { href: '/finalizadas', label: 'Finalizadas', short: 'Historial', icon: History },
 ];
@@ -42,7 +43,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-2 text-sidebar-primary"><Activity size={15} /><span className="font-data text-[10px] font-semibold uppercase tracking-[.15em]">Sistema operativo</span></div>
             <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/55">Lectura de inventario en tiempo real</p>
           </div>
-          <p className="mt-5 px-1 font-data text-[10px] text-sidebar-foreground/30">PLANTA 01 <span className="px-1">·</span> TURNO ACTUAL</p>
+          <p className="mt-5 px-1 font-data text-[10px] text-sidebar-foreground/30">PLANTA 01</p>
         </div>
       </aside>
 
@@ -53,13 +54,12 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="font-display text-2xl font-semibold uppercase tracking-wide">Control de bobinas</span>
           </Link>
         </div>
-        <div className="hidden items-center gap-2 font-data text-[11px] font-medium uppercase tracking-[.13em] text-muted-foreground md:flex"><Clock3 size={15} /> Turno activo <span className="text-foreground">07:00 — 15:00</span></div>
         <div className="ml-auto flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-[#4c9a71]" /><span className="font-data text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Conectado</span></div>
       </header>
 
       <main className="pb-24 md:ml-[248px] md:pb-0">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-3 border-t border-border bg-card/95 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-4 border-t border-border bg-card/95 backdrop-blur md:hidden">
         {navItems.map(({ href, short, icon: Icon }) => {
           const active = location === href;
           return <Link key={href} href={href} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold ${active ? 'text-primary' : 'text-muted-foreground'}`} data-testid={`link-mobile-nav-${short.toLowerCase()}`}><Icon size={21} /><span>{short}</span></Link>;

@@ -8,10 +8,12 @@
 import type { OrderInput } from './orderInput';
 import type { OrderStatus } from './orderStatus';
 
-export type ProductionOrder = OrderInput & {
+export type ProductionOrder = OrderInput & ({
   id: number;
   estado: OrderStatus;
   metrosFabricados: number;
   metrosPendientes: number;
   creadoEn: Date;
-};
+  /** @nullable */
+  finalizadaEn: Date | null;
+});
