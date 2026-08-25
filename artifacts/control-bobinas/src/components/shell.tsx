@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
-import { Boxes, ClipboardList, History, Warehouse, Activity, Layers3 } from 'lucide-react';
-import { getReadinessCheckQueryKey, useReadinessCheck } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Boxes, ClipboardList, History, Warehouse, Activity, Layers3, LogOut, UsersRound } from 'lucide-react';
+import { getGetSessionQueryKey, getReadinessCheckQueryKey, useLogout, useReadinessCheck, type User } from '@workspace/api-client-react';
 import { Link, useLocation } from 'wouter';
 
 const navItems = [
@@ -10,8 +11,13 @@ const navItems = [
   { href: '/finalizadas', label: 'Finalizadas', short: 'Historial', icon: History },
 ];
 
-export function Shell({ children }: { children: ReactNode }) {
+export function Shell({ children, user }: { children: ReactNode; user: User }) {
+  const queryClient = useQueryClient();
+  const logout = useLogout();
   const [location] = useLocation();
+  const visibleNavItems = user.role === 'ADMIN'
+    ? [...navItems, { href: '/usuarios', label: 'Usuarios', short: 'Equipo', icon: UsersRound }]
+    : navItems;
   const readiness = useReadinessCheck({
     query: {
       queryKey: getReadinessCheckQueryKey(),
@@ -40,7 +46,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="px-5 pt-8">
           <p className="px-3 font-data text-[10px] font-semibold uppercase tracking-[.18em] text-sidebar-foreground/40">Navegación</p>
           <nav className="mt-3 space-y-1.5">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {visibleNavItems.map(({ href, label, icon: Icon }) => {
               const active = location === href;
               return (
                 <Link key={href} href={href} className={`group flex min-h-14 items-center gap-3 rounded-lg px-3.5 text-sm font-semibold transition ${active ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'}`} data-testid={`link-nav-${label.toLowerCase()}`}>
@@ -68,13 +74,13 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="font-display text-2xl font-semibold uppercase tracking-wide">Control de bobinas</span>
           </Link>
         </div>
-        <div className="ml-auto flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span className="font-data text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">{connectionLabel}</span></div>
+        <div className="ml-auto flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span className="hidden font-data text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground sm:inline">{connectionLabel}</span><span className="hidden h-7 border-l border-border sm:block" /><span className="max-w-32 truncate text-sm font-semibold text-foreground">{user.nombre}</span><button type="button" onClick={() => logout.mutate(undefined, { onSuccess: () => queryClient.setQueryData(getGetSessionQueryKey(), { authenticated: false, user: null }) })} disabled={logout.isPending} className="pressable flex h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50" data-testid="button-logout"><LogOut size={15} /><span className="hidden sm:inline">Salir</span></button></div>
       </header>
 
       <main className="pb-24 md:ml-[248px] md:pb-0">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-[76px] grid-cols-4 border-t border-border bg-card/95 backdrop-blur md:hidden">
-        {navItems.map(({ href, short, icon: Icon }) => {
+      <nav className={`fixed inset-x-0 bottom-0 z-30 grid h-[76px] ${user.role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'} border-t border-border bg-card/95 backdrop-blur md:hidden`}>
+        {visibleNavItems.map(({ href, short, icon: Icon }) => {
           const active = location === href;
           return <Link key={href} href={href} className={`flex flex-col items-center justify-center gap-1 text-[11px] font-semibold ${active ? 'text-primary' : 'text-muted-foreground'}`} data-testid={`link-mobile-nav-${short.toLowerCase()}`}><Icon size={21} /><span>{short}</span></Link>;
         })}

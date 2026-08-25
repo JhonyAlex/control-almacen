@@ -15,8 +15,10 @@ import {
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { coils, productionOrders } from "@workspace/db/schema";
+import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
+router.use(requireAuth);
 const CAMISAS = new Set(["400", "475", "520", "22-6-22", "21-8-21", "40-6-40", "40-8-40", "47-5-47", "47-8-47", "52-8-52"]);
 const MATERIALES = new Set(["OPP", "OPP RECICLADO"]);
 

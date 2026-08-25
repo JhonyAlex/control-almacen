@@ -27,6 +27,161 @@ export const ReadinessCheckResponse = zod.object({
 
 
 /**
+ * @summary Check whether the first administrator must be created
+ */
+export const GetBootstrapStatusResponse = zod.object({
+  "needsSetup": zod.boolean()
+})
+
+
+/**
+ * @summary Get the current session
+ */
+export const GetSessionResponse = zod.object({
+  "authenticated": zod.boolean(),
+  "user": zod.union([zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+}),zod.null()])
+})
+
+
+/**
+ * @summary Create the first administrator
+ */
+
+export const registerFirstUserBodyPasswordMin = 12;
+
+
+
+export const RegisterFirstUserBody = zod.object({
+  "nombre": zod.string().min(1),
+  "email": zod.string(),
+  "password": zod.string().min(registerFirstUserBodyPasswordMin)
+})
+
+export const RegisterFirstUserResponse = zod.object({
+  "authenticated": zod.literal(true),
+  "user": zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Sign in
+ */
+export const LoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginResponse = zod.object({
+  "authenticated": zod.literal(true),
+  "user": zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Sign out
+ */
+export const LogoutResponse = zod.void()
+
+
+/**
+ * @summary List users
+ */
+export const ListUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
+ * @summary Create a normal user
+ */
+
+export const createUserBodyPasswordMin = 12;
+
+
+
+export const CreateUserBody = zod.object({
+  "nombre": zod.string().min(1),
+  "email": zod.string(),
+  "password": zod.string().min(createUserBodyPasswordMin)
+})
+
+export const CreateUserResponse = zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+
+
+/**
+ * @summary Activate or deactivate a user
+ */
+export const SetUserStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetUserStatusBody = zod.object({
+  "isActive": zod.boolean()
+})
+
+export const SetUserStatusResponse = zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set a user's password
+ */
+export const ResetUserPasswordParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const resetUserPasswordBodyPasswordMin = 12;
+
+
+
+export const ResetUserPasswordBody = zod.object({
+  "password": zod.string().min(resetUserPasswordBodyPasswordMin)
+})
+
+export const ResetUserPasswordResponse = zod.void()
+
+
+/**
  * @summary List production orders
  */
 export const ListOrdersQueryParams = zod.object({

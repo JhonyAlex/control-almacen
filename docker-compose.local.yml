@@ -1,4 +1,6 @@
 services:
   app:
+    environment:
+      COOKIE_SECURE: "false"
     ports:
       - "${APP_PORT:-3000}:3000"

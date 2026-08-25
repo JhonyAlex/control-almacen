@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './authenticatedSessionResponse';
+export * from './bootstrapStatus';
 export * from './camisa';
 export * from './coil';
 export * from './coilCharacteristics';
@@ -14,10 +16,17 @@ export * from './coilTipo';
 export * from './healthStatus';
 export * from './inventorySummary';
 export * from './listOrdersParams';
+export * from './loginInput';
 export * from './manufacturedCoilInput';
 export * from './material';
 export * from './orderBlockInput';
 export * from './orderInput';
 export * from './orderStatus';
+export * from './passwordInput';
 export * from './productionOrder';
 export * from './remnantInput';
+export * from './sessionResponse';
+export * from './user';
+export * from './userCredentialsInput';
+export * from './userRole';
+export * from './userStatusInput';

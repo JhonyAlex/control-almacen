@@ -1,5 +1,6 @@
 import express, { type ErrorRequestHandler, type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "node:path";
 import pinoHttp from "pino-http";
 import { ZodError } from "zod";
@@ -36,12 +37,13 @@ const configuredCorsOrigins = process.env.CORS_ORIGIN
 app.use(
   cors(
     configuredCorsOrigins && configuredCorsOrigins.length > 0
-      ? { origin: configuredCorsOrigins }
+      ? { origin: configuredCorsOrigins, credentials: true }
       : undefined,
   ),
 );
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 app.use("/api", router);
 

@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and initial setup
+  - name: users
+    description: User management
   - name: orders
     description: Production orders
   - name: inventory
@@ -43,6 +47,157 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
         "503":
           description: Database is not ready
+  /auth/bootstrap:
+    get:
+      operationId: getBootstrapStatus
+      tags: [auth]
+      summary: Check whether the first administrator must be created
+      responses:
+        "200":
+          description: Initial setup status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapStatus"
+  /auth/session:
+    get:
+      operationId: getSession
+      tags: [auth]
+      summary: Get the current session
+      responses:
+        "200":
+          description: Current authenticated user, if any
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+  /auth/register-first:
+    post:
+      operationId: registerFirstUser
+      tags: [auth]
+      summary: Create the first administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCredentialsInput"
+      responses:
+        "201":
+          description: First administrator created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSessionResponse"
+        "409":
+          description: Initial setup has already been completed
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedSessionResponse"
+        "401":
+          description: Invalid credentials
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Sign out
+      responses:
+        "204":
+          description: Signed out
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          description: Administrator required
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a normal user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCredentialsInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          description: Email already registered
+  /users/{id}/status:
+    patch:
+      operationId: setUserStatus
+      tags: [users]
+      summary: Activate or deactivate a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserStatusInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{id}/password:
+    post:
+      operationId: resetUserPassword
+      tags: [users]
+      summary: Set a user's password
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordInput"
+      responses:
+        "204":
+          description: Password updated
   /orders:
     get:
       operationId: listOrders
@@ -250,6 +405,82 @@ components:
           type: string
       required:
         - status
+    BootstrapStatus:
+      type: object
+      required: [needsSetup]
+      properties:
+        needsSetup:
+          type: boolean
+    User:
+      type: object
+      required: [id, nombre, email, role, isActive, creadoEn]
+      properties:
+        id:
+          type: number
+        nombre:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, USER]
+        isActive:
+          type: boolean
+        creadoEn:
+          type: string
+          format: date-time
+    UserCredentialsInput:
+      type: object
+      required: [nombre, email, password]
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 12
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    PasswordInput:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 12
+    UserStatusInput:
+      type: object
+      required: [isActive]
+      properties:
+        isActive:
+          type: boolean
+    SessionResponse:
+      type: object
+      required: [authenticated, user]
+      properties:
+        authenticated:
+          type: boolean
+        user:
+          anyOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+    AuthenticatedSessionResponse:
+      type: object
+      required: [authenticated, user]
+      properties:
+        authenticated:
+          type: boolean
+          const: true
+        user:
+          $ref: "#/components/schemas/User"
     OrderStatus:
       type: string
       enum: [ACTIVA, BLOQUEADA, FINALIZADA]

@@ -1,5 +1,6 @@
 import { createInsertSchema } from "drizzle-zod";
 import {
+  boolean,
   integer,
   numeric,
   pgTable,
@@ -33,7 +34,27 @@ export const coils = pgTable("coils", {
   creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("USER"),
+  isActive: boolean("is_active").notNull().default(true),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const authSessions = pgTable("auth_sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertProductionOrderSchema = createInsertSchema(productionOrders);
 export const insertCoilSchema = createInsertSchema(coils);
 export type ProductionOrder = typeof productionOrders.$inferSelect;
 export type Coil = typeof coils.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type AuthSession = typeof authSessions.$inferSelect;

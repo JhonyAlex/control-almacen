@@ -9,6 +9,59 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface BootstrapStatus {
+  needsSetup: boolean;
+}
+
+export type UserRole = typeof UserRole[keyof typeof UserRole];
+
+
+export const UserRole = {
+  ADMIN: 'ADMIN',
+  USER: 'USER',
+} as const;
+
+export interface User {
+  id: number;
+  nombre: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  creadoEn: string;
+}
+
+export interface UserCredentialsInput {
+  /** @minLength 1 */
+  nombre: string;
+  email: string;
+  /** @minLength 12 */
+  password: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface PasswordInput {
+  /** @minLength 12 */
+  password: string;
+}
+
+export interface UserStatusInput {
+  isActive: boolean;
+}
+
+export interface SessionResponse {
+  authenticated: boolean;
+  user: User | null;
+}
+
+export interface AuthenticatedSessionResponse {
+  authenticated: true;
+  user: User;
+}
+
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
 
