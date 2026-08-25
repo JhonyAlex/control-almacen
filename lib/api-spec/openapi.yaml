@@ -123,6 +123,34 @@ paths:
           description: Deleted
         "404":
           description: Order not found
+  /orders/{id}/blocked:
+    patch:
+      operationId: setOrderBlocked
+      tags: [orders]
+      summary: Block or unlock a production order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderBlockInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionOrder"
+        "400":
+          description: Finalized orders cannot be blocked or unlocked
+        "404":
+          description: Order not found
   /orders/{id}/coils:
     get:
       operationId: listOrderCoils
@@ -224,7 +252,7 @@ components:
         - status
     OrderStatus:
       type: string
-      enum: [ACTIVA, FINALIZADA]
+      enum: [ACTIVA, BLOQUEADA, FINALIZADA]
     CoilStatus:
       type: string
       enum: [DISPONIBLE, EN FÁBRICA]
@@ -255,6 +283,12 @@ components:
             metrosNecesarios:
               type: number
               exclusiveMinimum: 0
+    OrderBlockInput:
+      type: object
+      required: [blocked]
+      properties:
+        blocked:
+          type: boolean
     ProductionOrder:
       allOf:
         - type: object

@@ -5,6 +5,8 @@ import {
   AddProductionRemnantBody,
   ConsumeInventoryItemParams,
   CreateOrderBody,
+  SetOrderBlockedBody,
+  SetOrderBlockedParams,
   UpdateOrderBody,
   UpdateOrderParams,
   DeleteOrderParams,
@@ -28,7 +30,11 @@ const orderView = (order: typeof productionOrders.$inferSelect, fabricados: numb
   metrosNecesarios: numeric(order.metrosNecesarios),
   metrosFabricados: fabricados,
   metrosPendientes: Math.max(0, numeric(order.metrosNecesarios) - fabricados),
-  estado: fabricados >= numeric(order.metrosNecesarios) ? "FINALIZADA" : "ACTIVA",
+  estado: order.estado === "BLOQUEADA"
+    ? "BLOQUEADA"
+    : order.estado === "FINALIZADA" || fabricados >= numeric(order.metrosNecesarios)
+      ? "FINALIZADA"
+      : "ACTIVA",
   creadoEn: order.creadoEn.toISOString(),
   finalizadaEn: order.finalizadaEn?.toISOString() ?? null,
 });
@@ -131,6 +137,39 @@ router.patch("/orders/:id", async (req, res, next) => {
   }
 });
 
+router.patch("/orders/:id/blocked", async (req, res, next) => {
+  try {
+    const { id } = SetOrderBlockedParams.parse({ id: Number(req.params.id) });
+    const { blocked } = SetOrderBlockedBody.parse(req.body);
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(productionOrders).where(eq(productionOrders.id, id)).for("update");
+      if (!current) return { kind: "MISSING" as const };
+
+      const [{ total }] = await tx.select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` }).from(coils).where(eq(coils.ordenId, id));
+      if (current.estado === "FINALIZADA" || numeric(total) >= numeric(current.metrosNecesarios)) {
+        return { kind: "FINALIZED" as const };
+      }
+
+      const [updated] = await tx.update(productionOrders)
+        .set({ estado: blocked ? "BLOQUEADA" : "ACTIVA" })
+        .where(eq(productionOrders.id, id))
+        .returning();
+      return { kind: "UPDATED" as const, order: updated, total: numeric(total) };
+    });
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+    if (result.kind === "FINALIZED") {
+      res.status(400).json({ error: "Las órdenes finalizadas no se pueden bloquear ni desbloquear" });
+      return;
+    }
+    res.json(orderView(result.order, result.total));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/orders/:id/coils", async (req, res, next) => {
   try {
     const { id } = ListOrderCoilsParams.parse({ id: Number(req.params.id) });
@@ -179,7 +218,7 @@ router.post("/inventory/coils", async (req, res, next) => {
   try {
     const body = AddManufacturedCoilBody.parse(req.body);
     const result = await db.transaction(async (tx) => {
-      const [order] = await tx.select().from(productionOrders).where(eq(productionOrders.id, body.ordenId));
+      const [order] = await tx.select().from(productionOrders).where(eq(productionOrders.id, body.ordenId)).for("update");
       if (!order || order.estado !== "ACTIVA") throw new Error("ORDER_INACTIVE");
       const [created] = await tx.insert(coils).values({
         tipo: "BOBINA",

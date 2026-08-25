@@ -11,5 +11,6 @@ export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   ACTIVA: 'ACTIVA',
+  BLOQUEADA: 'BLOQUEADA',
   FINALIZADA: 'FINALIZADA',
 } as const;

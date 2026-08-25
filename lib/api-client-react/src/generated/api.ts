@@ -25,6 +25,7 @@ import type {
   InventorySummary,
   ListOrdersParams,
   ManufacturedCoilInput,
+  OrderBlockInput,
   OrderInput,
   ProductionOrder,
   RemnantInput
@@ -509,6 +510,78 @@ export const useDeleteOrder = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteOrderMutationOptions(options));
+    }
+
+export const getSetOrderBlockedUrl = (id: number,) => {
+
+
+
+
+  return `/api/orders/${id}/blocked`
+}
+
+/**
+ * @summary Block or unlock a production order
+ */
+export const setOrderBlocked = async (id: number,
+    orderBlockInput: OrderBlockInput, options?: Parameters<typeof customFetch>[1]): Promise<ProductionOrder> => {
+
+  return customFetch<ProductionOrder>(getSetOrderBlockedUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderBlockInput)
+  }
+);}
+
+
+
+
+
+export const getSetOrderBlockedMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOrderBlocked>>, TError,{id: number;data: BodyType<OrderBlockInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setOrderBlocked>>, TError,{id: number;data: BodyType<OrderBlockInput>}, TContext> => {
+
+const mutationKey = ['setOrderBlocked'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setOrderBlocked>>, {id: number;data: BodyType<OrderBlockInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setOrderBlocked(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetOrderBlockedMutationResult = NonNullable<Awaited<ReturnType<typeof setOrderBlocked>>>
+    export type SetOrderBlockedMutationBody = BodyType<OrderBlockInput>
+    export type SetOrderBlockedMutationError = ErrorType<void>
+
+    /**
+ * @summary Block or unlock a production order
+ */
+export const useSetOrderBlocked = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setOrderBlocked>>, TError,{id: number;data: BodyType<OrderBlockInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setOrderBlocked>>,
+        TError,
+        {id: number;data: BodyType<OrderBlockInput>},
+        TContext
+      > => {
+      return useMutation(getSetOrderBlockedMutationOptions(options));
     }
 
 export const getListOrderCoilsUrl = (id: number,) => {

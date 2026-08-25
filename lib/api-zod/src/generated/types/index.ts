@@ -16,6 +16,7 @@ export * from './inventorySummary';
 export * from './listOrdersParams';
 export * from './manufacturedCoilInput';
 export * from './material';
+export * from './orderBlockInput';
 export * from './orderInput';
 export * from './orderStatus';
 export * from './productionOrder';
