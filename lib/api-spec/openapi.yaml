@@ -28,6 +28,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /readyz:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Readiness check
+      description: Returns healthy only when the database is reachable.
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          description: Database is not ready
   /orders:
     get:
       operationId: listOrders
@@ -308,4 +323,3 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Coil"
-

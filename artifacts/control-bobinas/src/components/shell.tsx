@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { Boxes, ClipboardList, History, Warehouse, Activity, Layers3 } from 'lucide-react';
+import { getReadinessCheckQueryKey, useReadinessCheck } from '@workspace/api-client-react';
 import { Link, useLocation } from 'wouter';
 
 const navItems = [
@@ -11,6 +12,19 @@ const navItems = [
 
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const readiness = useReadinessCheck({
+    query: {
+      queryKey: getReadinessCheckQueryKey(),
+      refetchInterval: 30_000,
+      retry: 1,
+    },
+  });
+  const connectionLabel = readiness.isPending
+    ? 'Comprobando'
+    : readiness.isError
+      ? 'Sin conexión'
+      : 'Conectado';
+  const connectionColor = readiness.isError ? 'bg-destructive' : 'bg-[#4c9a71]';
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[248px] flex-col bg-sidebar text-sidebar-foreground md:flex">
@@ -54,7 +68,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="font-display text-2xl font-semibold uppercase tracking-wide">Control de bobinas</span>
           </Link>
         </div>
-        <div className="ml-auto flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-[#4c9a71]" /><span className="font-data text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">Conectado</span></div>
+        <div className="ml-auto flex items-center gap-3"><span className={`h-2 w-2 rounded-full ${connectionColor}`} /><span className="font-data text-[10px] font-semibold uppercase tracking-[.16em] text-muted-foreground">{connectionLabel}</span></div>
       </header>
 
       <main className="pb-24 md:ml-[248px] md:pb-0">{children}</main>

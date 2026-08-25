@@ -84,7 +84,12 @@ router.delete("/orders/:id", async (req, res, next) => {
       res.status(404).json({ error: "La orden no está activa o no existe" });
       return;
     }
-    await db.delete(productionOrders).where(eq(productionOrders.id, id));
+    await db.transaction(async (tx) => {
+      // Keep already registered material in the warehouse when its order is
+      // removed; only the relationship to the deleted order is cleared.
+      await tx.update(coils).set({ ordenId: null }).where(eq(coils.ordenId, id));
+      await tx.delete(productionOrders).where(eq(productionOrders.id, id));
+    });
     res.status(204).end();
   } catch (error) {
     next(error);
