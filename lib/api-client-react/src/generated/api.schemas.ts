@@ -119,15 +119,73 @@ export interface OrderBlockInput {
   blocked: boolean;
 }
 
-export type ProductionOrder = OrderInput & ({
+export type OrderOrigin = typeof OrderOrigin[keyof typeof OrderOrigin];
+
+
+export const OrderOrigin = {
+  MANUAL: 'MANUAL',
+  GESTION_PEDIDOS: 'GESTION_PEDIDOS',
+} as const;
+
+export interface RelatedPedido {
   id: number;
-  estado: OrderStatus;
+  pedidoId: string;
+  numeroPedidoCliente: string;
+  metros: number;
+  vinculadoEn: string;
+}
+
+export interface NexusOrderInput {
+  eventId: string;
+  /** @minLength 1 */
+  pedidoId: string;
+  /** @minLength 1 */
+  numeroPedidoCliente: string;
+  /** @exclusiveMinimum 0 */
+  metros: number;
+  /** @exclusiveMinimum 0 */
+  bobinaMadre: number;
+  /** @minLength 1 */
+  camisa: string;
+  /** @minLength 1 */
+  tipoMaterial: string;
+  /** @exclusiveMinimum 0 */
+  micras: number;
+}
+
+export type NexusOrderResponseAction = typeof NexusOrderResponseAction[keyof typeof NexusOrderResponseAction];
+
+
+export const NexusOrderResponseAction = {
+  ORDER_CREATED: 'ORDER_CREATED',
+  ORDER_UPDATED: 'ORDER_UPDATED',
+  ALREADY_PROCESSED: 'ALREADY_PROCESSED',
+} as const;
+
+export interface NexusOrderResponse {
+  success: boolean;
+  action: NexusOrderResponseAction;
+  orderId: number;
+  totalMetros: number;
+  eventId: string;
+}
+
+export interface ProductionOrder {
+  id: number;
+  ancho: number;
+  micras: number;
+  camisa: string;
+  material: string;
+  metrosNecesarios: number;
   metrosFabricados: number;
   metrosPendientes: number;
+  estado: OrderStatus;
+  origen: OrderOrigin;
+  pedidosRelacionados: RelatedPedido[];
   creadoEn: string;
   /** @nullable */
   finalizadaEn: string | null;
-});
+}
 
 export interface ManufacturedCoilInput {
   ordenId: number;

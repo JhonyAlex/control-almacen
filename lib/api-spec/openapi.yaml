@@ -18,6 +18,8 @@ tags:
     description: Production orders
   - name: inventory
     description: Warehouse coils and remnants
+  - name: integrations
+    description: Service-to-service integrations
 paths:
   /healthz:
     get:
@@ -396,7 +398,46 @@ paths:
                 $ref: "#/components/schemas/Coil"
         "404":
           description: Item not available
+  /integrations/gestion-pedidos/nexus-orders:
+    post:
+      operationId: processNexusOrder
+      tags: [integrations]
+      summary: Receive order from GestionPedidosPigmea
+      description: Process and group customer order into a production order
+      security:
+        - IntegrationBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NexusOrderInput"
+      responses:
+        "200":
+          description: Order updated or already processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NexusOrderResponse"
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NexusOrderResponse"
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+        "409":
+          description: Conflict
+        "503":
+          description: Service integration not configured
 components:
+  securitySchemes:
+    IntegrationBearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     HealthStatus:
       type: object
@@ -489,7 +530,19 @@ components:
       enum: [DISPONIBLE, EN FÁBRICA]
     Camisa:
       type: string
-      enum: [400, 475, 520, 22-6-22, 21-8-21, 40-6-40, 40-8-40, 47-5-47, 47-8-47, 52-8-52]
+      enum:
+        [
+          400,
+          475,
+          520,
+          22-6-22,
+          21-8-21,
+          40-6-40,
+          40-8-40,
+          47-5-47,
+          47-8-47,
+          52-8-52,
+        ]
     Material:
       type: string
       enum: [OPP, OPP RECICLADO]
@@ -520,26 +573,123 @@ components:
       properties:
         blocked:
           type: boolean
+    OrderOrigin:
+      type: string
+      enum: [MANUAL, GESTION_PEDIDOS]
+    RelatedPedido:
+      type: object
+      required: [id, pedidoId, numeroPedidoCliente, metros, vinculadoEn]
+      properties:
+        id:
+          type: number
+        pedidoId:
+          type: string
+        numeroPedidoCliente:
+          type: string
+        metros:
+          type: number
+        vinculadoEn:
+          type: string
+          format: date-time
+    NexusOrderInput:
+      type: object
+      required:
+        [
+          eventId,
+          pedidoId,
+          numeroPedidoCliente,
+          metros,
+          bobinaMadre,
+          camisa,
+          tipoMaterial,
+          micras,
+        ]
+      properties:
+        eventId:
+          type: string
+        pedidoId:
+          type: string
+          minLength: 1
+        numeroPedidoCliente:
+          type: string
+          minLength: 1
+        metros:
+          type: number
+          exclusiveMinimum: 0
+        bobinaMadre:
+          type: number
+          exclusiveMinimum: 0
+        camisa:
+          type: string
+          minLength: 1
+        tipoMaterial:
+          type: string
+          minLength: 1
+        micras:
+          type: number
+          exclusiveMinimum: 0
+    NexusOrderResponse:
+      type: object
+      required: [success, action, orderId, totalMetros, eventId]
+      properties:
+        success:
+          type: boolean
+        action:
+          type: string
+          enum: [ORDER_CREATED, ORDER_UPDATED, ALREADY_PROCESSED]
+        orderId:
+          type: number
+        totalMetros:
+          type: number
+        eventId:
+          type: string
     ProductionOrder:
-      allOf:
-        - type: object
-          required: [id, estado, metrosFabricados, metrosPendientes, creadoEn, finalizadaEn]
-          properties:
-            id:
-              type: number
-            estado:
-              $ref: "#/components/schemas/OrderStatus"
-            metrosFabricados:
-              type: number
-            metrosPendientes:
-              type: number
-            creadoEn:
-              type: string
-              format: date-time
-            finalizadaEn:
-              type: ["string", "null"]
-              format: date-time
-        - $ref: "#/components/schemas/OrderInput"
+      type: object
+      required:
+        - id
+        - ancho
+        - micras
+        - camisa
+        - material
+        - metrosNecesarios
+        - metrosFabricados
+        - metrosPendientes
+        - estado
+        - origen
+        - pedidosRelacionados
+        - creadoEn
+        - finalizadaEn
+      properties:
+        id:
+          type: number
+        ancho:
+          type: number
+        micras:
+          type: number
+        camisa:
+          type: string
+        material:
+          type: string
+        metrosNecesarios:
+          type: number
+        metrosFabricados:
+          type: number
+        metrosPendientes:
+          type: number
+        estado:
+          $ref: "#/components/schemas/OrderStatus"
+        origen:
+          $ref: "#/components/schemas/OrderOrigin"
+        pedidosRelacionados:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelatedPedido"
+        creadoEn:
+          type: string
+          format: date-time
+        finalizadaEn:
+          type: ["string", "null"]
+          format: date-time
     ManufacturedCoilInput:
       type: object
       required: [ordenId, metros]

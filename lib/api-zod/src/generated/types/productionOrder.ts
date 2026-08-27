@@ -5,15 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { OrderInput } from './orderInput';
+import type { OrderOrigin } from './orderOrigin';
 import type { OrderStatus } from './orderStatus';
+import type { RelatedPedido } from './relatedPedido';
 
-export type ProductionOrder = OrderInput & ({
+export interface ProductionOrder {
   id: number;
-  estado: OrderStatus;
+  ancho: number;
+  micras: number;
+  camisa: string;
+  material: string;
+  metrosNecesarios: number;
   metrosFabricados: number;
   metrosPendientes: number;
+  estado: OrderStatus;
+  origen: OrderOrigin;
+  pedidosRelacionados: RelatedPedido[];
   creadoEn: Date;
   /** @nullable */
   finalizadaEn: Date | null;
-});
+}

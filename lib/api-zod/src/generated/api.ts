@@ -188,25 +188,27 @@ export const ListOrdersQueryParams = zod.object({
   "status": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']).optional()
 })
 
-export const listOrdersResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
-
-
-
 export const ListOrdersResponseItem = zod.object({
   "id": zod.number(),
-  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
-  "metrosFabricados": zod.number(),
-  "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
-}).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
-  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
-  "material": zod.enum(['OPP', 'OPP RECICLADO'])
-}).and(zod.object({
-  "metrosNecesarios": zod.number().gt(listOrdersResponseTwoTwoMetrosNecesariosExclusiveMin)
-})))
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
+})
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
 
@@ -226,25 +228,27 @@ export const CreateOrderBody = zod.object({
   "metrosNecesarios": zod.number().gt(createOrderBodyTwoMetrosNecesariosExclusiveMin)
 }))
 
-export const createOrderResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
-
-
-
 export const CreateOrderResponse = zod.object({
   "id": zod.number(),
-  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
-  "metrosFabricados": zod.number(),
-  "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
-}).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
-  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
-  "material": zod.enum(['OPP', 'OPP RECICLADO'])
-}).and(zod.object({
-  "metrosNecesarios": zod.number().gt(createOrderResponseTwoTwoMetrosNecesariosExclusiveMin)
-})))
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
+})
 
 
 /**
@@ -267,25 +271,27 @@ export const UpdateOrderBody = zod.object({
   "metrosNecesarios": zod.number().gt(updateOrderBodyTwoMetrosNecesariosExclusiveMin)
 }))
 
-export const updateOrderResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
-
-
-
 export const UpdateOrderResponse = zod.object({
   "id": zod.number(),
-  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
-  "metrosFabricados": zod.number(),
-  "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
-}).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
-  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
-  "material": zod.enum(['OPP', 'OPP RECICLADO'])
-}).and(zod.object({
-  "metrosNecesarios": zod.number().gt(updateOrderResponseTwoTwoMetrosNecesariosExclusiveMin)
-})))
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
+})
 
 
 /**
@@ -309,25 +315,27 @@ export const SetOrderBlockedBody = zod.object({
   "blocked": zod.boolean()
 })
 
-export const setOrderBlockedResponseTwoTwoMetrosNecesariosExclusiveMin = 0;
-
-
-
 export const SetOrderBlockedResponse = zod.object({
   "id": zod.number(),
-  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
-  "metrosFabricados": zod.number(),
-  "metrosPendientes": zod.number(),
-  "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
-}).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
-  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
-  "material": zod.enum(['OPP', 'OPP RECICLADO'])
-}).and(zod.object({
-  "metrosNecesarios": zod.number().gt(setOrderBlockedResponseTwoTwoMetrosNecesariosExclusiveMin)
-})))
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable()
+})
 
 
 /**
@@ -452,5 +460,41 @@ export const ConsumeInventoryItemResponse = zod.object({
   "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
   "material": zod.enum(['OPP', 'OPP RECICLADO'])
 }))
+
+
+/**
+ * Process and group customer order into a production order
+ * @summary Receive order from GestionPedidosPigmea
+ */
+
+
+export const processNexusOrderBodyMetrosExclusiveMin = 0;
+
+export const processNexusOrderBodyBobinaMadreExclusiveMin = 0;
+
+
+
+export const processNexusOrderBodyMicrasExclusiveMin = 0;
+
+
+
+export const ProcessNexusOrderBody = zod.object({
+  "eventId": zod.string(),
+  "pedidoId": zod.string().min(1),
+  "numeroPedidoCliente": zod.string().min(1),
+  "metros": zod.number().gt(processNexusOrderBodyMetrosExclusiveMin),
+  "bobinaMadre": zod.number().gt(processNexusOrderBodyBobinaMadreExclusiveMin),
+  "camisa": zod.string().min(1),
+  "tipoMaterial": zod.string().min(1),
+  "micras": zod.number().gt(processNexusOrderBodyMicrasExclusiveMin)
+})
+
+export const ProcessNexusOrderResponse = zod.object({
+  "success": zod.boolean(),
+  "action": zod.enum(['ORDER_CREATED', 'ORDER_UPDATED', 'ALREADY_PROCESSED']),
+  "orderId": zod.number(),
+  "totalMetros": zod.number(),
+  "eventId": zod.string()
+})
 
 

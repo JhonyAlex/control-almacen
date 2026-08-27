@@ -15,6 +15,13 @@
       "when": 1787660000000,
       "tag": "0001_users_and_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787842520189,
+      "tag": "0002_nexus_orders_integration",
+      "breakpoints": true
     }
   ]
 }

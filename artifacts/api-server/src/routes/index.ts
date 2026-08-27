@@ -3,10 +3,12 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import controlBobinasRouter from "./control-bobinas";
 import usersRouter from "./users";
+import integrationsRouter from "./integrations";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(integrationsRouter);
 router.use(authRouter);
 router.use(usersRouter);
 router.use(controlBobinasRouter);

@@ -28,6 +28,8 @@ import type {
   ListOrdersParams,
   LoginInput,
   ManufacturedCoilInput,
+  NexusOrderInput,
+  NexusOrderResponse,
   OrderBlockInput,
   OrderInput,
   PasswordInput,
@@ -1616,5 +1618,77 @@ export const useConsumeInventoryItem = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getConsumeInventoryItemMutationOptions(options));
+    }
+
+export const getProcessNexusOrderUrl = () => {
+
+
+
+
+  return `/api/integrations/gestion-pedidos/nexus-orders`
+}
+
+/**
+ * Process and group customer order into a production order
+ * @summary Receive order from GestionPedidosPigmea
+ */
+export const processNexusOrder = async (nexusOrderInput: NexusOrderInput, options?: Parameters<typeof customFetch>[1]): Promise<NexusOrderResponse> => {
+
+  return customFetch<NexusOrderResponse>(getProcessNexusOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(nexusOrderInput)
+  }
+);}
+
+
+
+
+
+export const getProcessNexusOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processNexusOrder>>, TError,{data: BodyType<NexusOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof processNexusOrder>>, TError,{data: BodyType<NexusOrderInput>}, TContext> => {
+
+const mutationKey = ['processNexusOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof processNexusOrder>>, {data: BodyType<NexusOrderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  processNexusOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProcessNexusOrderMutationResult = NonNullable<Awaited<ReturnType<typeof processNexusOrder>>>
+    export type ProcessNexusOrderMutationBody = BodyType<NexusOrderInput>
+    export type ProcessNexusOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Receive order from GestionPedidosPigmea
+ */
+export const useProcessNexusOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processNexusOrder>>, TError,{data: BodyType<NexusOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof processNexusOrder>>,
+        TError,
+        {data: BodyType<NexusOrderInput>},
+        TContext
+      > => {
+      return useMutation(getProcessNexusOrderMutationOptions(options));
     }
 
