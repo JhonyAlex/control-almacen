@@ -35,6 +35,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL in .env}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      GESTION_PEDIDOS_INTEGRATION_TOKEN: ${GESTION_PEDIDOS_INTEGRATION_TOKEN:-}
     expose:
       - "3000"
     healthcheck:
