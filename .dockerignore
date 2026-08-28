@@ -9,6 +9,7 @@ dist
 **/dist
 coverage
 *.tsbuildinfo
+**/*.tsbuildinfo
 .env
 .env.*
 !.env.example

@@ -10,7 +10,7 @@ FROM base AS build
 
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN find . -name '*.tsbuildinfo' -delete && pnpm run typecheck
+RUN pnpm run typecheck
 RUN pnpm --filter @workspace/control-bobinas run build
 RUN pnpm --filter @workspace/api-server run build
 
