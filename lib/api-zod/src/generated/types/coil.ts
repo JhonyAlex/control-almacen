@@ -8,6 +8,7 @@
 import type { CoilCharacteristics } from './coilCharacteristics';
 import type { CoilStatus } from './coilStatus';
 import type { CoilTipo } from './coilTipo';
+import type { RelatedPedido } from './relatedPedido';
 
 export type Coil = CoilCharacteristics & ({
   id: number;
@@ -16,5 +17,6 @@ export type Coil = CoilCharacteristics & ({
   estado: CoilStatus;
   /** @nullable */
   ordenId?: number | null;
+  pedidosRelacionados?: RelatedPedido[];
   creadoEn: Date;
 });

@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ClipboardPlus, Factory, Lock, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
+import { ClipboardPlus, Factory, Layers, Lock, Package, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
 import {
   getListOrdersQueryKey,
   OrderStatus,
@@ -12,7 +12,7 @@ import {
   type ProductionOrder,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
-import { CAMISAS, formatDate, formatMeters, MATERIALES, parseCamisa } from '@/lib/domain';
+import { CAMISAS, formatDate, formatMeters, formatPedidosSummary, MATERIALES, parseCamisa } from '@/lib/domain';
 
 function OrderSkeleton() {
   return <div className="space-y-3" aria-label="Cargando órdenes" data-testid="loading-orders"><div className="h-44 animate-pulse rounded-xl bg-muted" /><div className="h-44 animate-pulse rounded-xl bg-muted" /></div>;
@@ -124,11 +124,11 @@ function Production() {
       </Modal>
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onSubmit={(event) => { event.preventDefault(); onDelete(); }} eyebrow="Acción irreversible" title="Eliminar orden" submitLabel={deleteOrder.isPending ? 'Eliminando…' : 'Eliminar orden'} submitDisabled={deleteOrder.isPending} destructive>
-        {deleteTarget && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden #{deleteTarget.id}</p><p className="mt-2 font-semibold">{deleteTarget.ancho} mm · {deleteTarget.micras} µ · {deleteTarget.material}</p><p className="mt-2 text-sm text-muted-foreground">{formatMeters(deleteTarget.metrosPendientes)} m pendientes de fabricar</p></div><p className="mt-5 text-sm leading-relaxed text-muted-foreground">Se eliminará esta orden activa. El material ya registrado no se modifica.</p>{deleteOrder.isError && <p className="mt-3 text-sm text-destructive" role="alert" data-testid="error-delete-order">No se pudo eliminar la orden.</p>}</div>}
+        {deleteTarget && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden #{deleteTarget.id}</p><p className="mt-2 font-semibold">{deleteTarget.ancho} mm · {deleteTarget.micras} µ · {deleteTarget.material}</p><p className="mt-1 text-sm text-muted-foreground">{formatMeters(deleteTarget.metrosPendientes)} m pendientes de fabricar</p>{deleteTarget.pedidosRelacionados && deleteTarget.pedidosRelacionados.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{formatPedidosSummary(deleteTarget.pedidosRelacionados)}</p>}</div><p className="mt-5 text-sm leading-relaxed text-muted-foreground">Se eliminará esta orden activa. El material ya registrado no se modifica.</p>{deleteOrder.isError && <p className="mt-3 text-sm text-destructive" role="alert" data-testid="error-delete-order">No se pudo eliminar la orden.</p>}</div>}
       </Modal>
 
       <Modal open={!!blockTarget} onClose={() => { setBlockTarget(null); setActionError(null); }} onSubmit={(event) => { event.preventDefault(); onBlock(); }} eyebrow="Detener producción" title="Bloquear orden" submitLabel={setOrderBlocked.isPending ? 'Bloqueando…' : 'Bloquear orden'} submitDisabled={setOrderBlocked.isPending}>
-        {blockTarget && <div><div className="rounded-lg border border-accent/50 bg-secondary/60 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden ORD-{String(blockTarget.id).padStart(4, '0')}</p><p className="mt-2 font-semibold">{blockTarget.ancho} mm · {blockTarget.micras} µ · {blockTarget.material}</p><p className="mt-2 text-sm text-muted-foreground">{formatMeters(blockTarget.metrosPendientes)} m pendientes de fabricar</p></div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><Lock size={18} className="mt-0.5 shrink-0 text-accent-foreground" /> No se podrán registrar más bobinas ni editar esta orden. Crea una nueva para continuar; podrás desbloquearla más adelante si lo necesitas.</p>{actionError && <p className="mt-4 text-sm text-destructive" role="alert">{actionError}</p>}</div>}
+        {blockTarget && <div><div className="rounded-lg border border-accent/50 bg-secondary/60 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden ORD-{String(blockTarget.id).padStart(4, '0')}</p><p className="mt-2 font-semibold">{blockTarget.ancho} mm · {blockTarget.micras} µ · {blockTarget.material}</p><p className="mt-1 text-sm text-muted-foreground">{formatMeters(blockTarget.metrosPendientes)} m pendientes de fabricar</p>{blockTarget.pedidosRelacionados && blockTarget.pedidosRelacionados.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{formatPedidosSummary(blockTarget.pedidosRelacionados)}</p>}</div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><Lock size={18} className="mt-0.5 shrink-0 text-accent-foreground" /> No se podrán registrar más bobinas ni editar esta orden. Crea una nueva para continuar; podrás desbloquearla más adelante si lo necesitas.</p>{actionError && <p className="mt-4 text-sm text-destructive" role="alert">{actionError}</p>}</div>}
       </Modal>
     </div>
   );
@@ -138,9 +138,44 @@ function OrderCard({ order, index, onDelete, onEdit, onBlock, onUnblock, blocked
   const progress = order.metrosNecesarios > 0 ? Math.min(100, (order.metrosFabricados / order.metrosNecesarios) * 100) : 0;
   const statusClass = blocked ? 'text-[#906000]' : 'text-[#3c7d52]';
   const statusDotClass = blocked ? 'bg-accent' : 'bg-[#4c9a71]';
+  const pedidos = order.pedidosRelacionados ?? [];
   return <article className={`load-in rounded-xl border bg-card p-5 sm:p-6 ${blocked ? 'border-accent/50' : 'border-border'}`} style={{ animationDelay: `${index * 55}ms` }} data-testid={`card-order-${order.id}`}>
     <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_410px_190px_145px] xl:items-center">
-      <div className="min-w-0"><div className="flex items-center gap-3"><span className="rounded-md bg-primary px-2.5 py-1 font-data text-[11px] font-semibold text-primary-foreground" data-testid={`text-order-id-${order.id}`}>ORD-{String(order.id).padStart(4, '0')}</span><span className={`flex items-center gap-1.5 font-data text-[10px] uppercase tracking-wider ${statusClass}`}><span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} /> {order.estado}</span></div><h2 className="mt-4 font-display text-[2.35rem] font-semibold leading-none">{order.ancho} <span className="text-xl font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">/</span>{order.micras} <span className="text-xl font-medium text-muted-foreground">µ</span></h2><p className="mt-2 text-sm text-muted-foreground">Camisa <strong className="text-foreground">{order.camisa}</strong> <span className="mx-1.5 text-muted-foreground/40">·</span> {order.material}</p></div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="rounded-md bg-primary px-2.5 py-1 font-data text-[11px] font-semibold text-primary-foreground" data-testid={`text-order-id-${order.id}`}>ORD-{String(order.id).padStart(4, '0')}</span>
+          <span className={`flex items-center gap-1.5 font-data text-[10px] uppercase tracking-wider ${statusClass}`}><span className={`h-1.5 w-1.5 rounded-full ${statusDotClass}`} /> {order.estado}</span>
+          {order.origen === 'GESTION_PEDIDOS' && <span className="rounded bg-primary/10 px-2 py-0.5 font-data text-[10px] font-semibold text-primary">Nexus</span>}
+        </div>
+        <h2 className="mt-3 font-display text-[2.35rem] font-semibold leading-none">{order.ancho} <span className="text-xl font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">/</span>{order.micras} <span className="text-xl font-medium text-muted-foreground">µ</span></h2>
+        <p className="mt-2 text-sm text-muted-foreground">Camisa <strong className="text-foreground">{order.camisa}</strong> <span className="mx-1.5 text-muted-foreground/40">·</span> {order.material}</p>
+        {pedidos.length === 1 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2" data-testid={`order-single-pedido-${order.id}`}>
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              <Package size={14} /> Pedido: {pedidos[0].numeroPedidoCliente || pedidos[0].pedidoId}
+            </span>
+          </div>
+        )}
+        {pedidos.length > 1 && (
+          <div className="mt-3 space-y-1.5" data-testid={`order-grouped-pedidos-${order.id}`}>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <Layers size={14} /> {pedidos.length} pedidos agrupados:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {pedidos.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 font-data text-[11px] font-medium text-secondary-foreground" title={`${formatMeters(p.metros)} m vinculados`}>
+                  {p.numeroPedidoCliente || p.pedidoId} <span className="text-muted-foreground">({formatMeters(p.metros)} m)</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {pedidos.length === 0 && order.origen === 'MANUAL' && (
+          <div className="mt-3">
+            <span className="rounded bg-muted px-2 py-0.5 font-data text-[10px] font-medium text-muted-foreground">Orden manual</span>
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-3 border-y border-border py-4 xl:min-w-0 xl:border-y-0 xl:border-l xl:py-0 xl:pl-7"><div><p className="text-[11px] text-muted-foreground">Necesarios</p><p className="mt-1 font-data text-xl font-semibold">{formatMeters(order.metrosNecesarios)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div><div><p className="text-[11px] text-muted-foreground">Fabricados</p><p className="mt-1 font-data text-xl font-semibold text-primary">{formatMeters(order.metrosFabricados)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div><div><p className="text-[11px] text-muted-foreground">Pendientes</p><p className="mt-1 font-data text-xl font-semibold text-accent-foreground">{formatMeters(order.metrosPendientes)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div></div>
       <div className="xl:w-auto"><div className="flex justify-between text-[11px] text-muted-foreground"><span>Avance</span><span className="font-data font-semibold text-foreground">{Math.round(progress)}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} /></div><p className="mt-2 text-[11px] text-muted-foreground">Creada {formatDate(order.creadoEn)}</p>{blocked && <p className="mt-3 text-[11px] font-medium text-[#906000]">Producción detenida</p>}</div>
       <div className="flex flex-wrap gap-2 xl:flex-col xl:items-stretch">{blocked ? <button type="button" onClick={onUnblock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-unblock-order-${order.id}`}><Unlock size={16} /> Desbloquear</button> : <button type="button" onClick={onBlock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent/60 bg-secondary/70 px-3 text-xs font-semibold text-accent-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-block-order-${order.id}`}><Lock size={16} /> Bloquear</button>}{!blocked && <><button type="button" onClick={onEdit} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-edit-order-${order.id}`}>Editar</button><button type="button" onClick={onDelete} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-destructive/25 px-3 text-xs font-semibold text-destructive hover:bg-destructive/5" data-testid={`button-delete-order-${order.id}`}><Trash2 size={16} /> Eliminar</button></>}</div>

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   AddManufacturedCoilBody,
   AddProductionRemnantBody,
@@ -50,6 +50,57 @@ interface RelatedPedidoView {
   numeroPedidoCliente: string;
   metros: number;
   vinculadoEn: string;
+}
+
+const coilView = (
+  coil: typeof coils.$inferSelect,
+  pedidosRelacionados: RelatedPedidoView[] = [],
+) => ({
+  id: coil.id,
+  tipo: coil.tipo,
+  metros: numeric(coil.metros),
+  ancho: numeric(coil.ancho),
+  micras: numeric(coil.micras),
+  camisa: coil.camisa,
+  material: coil.material,
+  estado: coil.estado,
+  ordenId: coil.ordenId,
+  pedidosRelacionados,
+  creadoEn: coil.creadoEn.toISOString(),
+});
+
+async function getPedidosByOrderIds(orderIds: number[]) {
+  const validIds = Array.from(
+    new Set(
+      orderIds.filter(
+        (id): id is number => typeof id === "number" && id > 0,
+      ),
+    ),
+  );
+  const map = new Map<number, RelatedPedidoView[]>();
+  if (validIds.length === 0) return map;
+
+  const records = await db
+    .select()
+    .from(productionOrderPedidos)
+    .where(inArray(productionOrderPedidos.ordenId, validIds))
+    .orderBy(
+      asc(productionOrderPedidos.vinculadoEn),
+      asc(productionOrderPedidos.id),
+    );
+
+  for (const item of records) {
+    const list = map.get(item.ordenId) ?? [];
+    list.push({
+      id: item.id,
+      pedidoId: item.pedidoId,
+      numeroPedidoCliente: item.numeroPedidoCliente,
+      metros: numeric(item.metros),
+      vinculadoEn: item.vinculadoEn.toISOString(),
+    });
+    map.set(item.ordenId, list);
+  }
+  return map;
 }
 
 const orderView = (
@@ -385,20 +436,9 @@ router.get("/orders/:id/coils", async (req, res, next) => {
       .from(coils)
       .where(eq(coils.ordenId, id))
       .orderBy(asc(coils.id));
-    res.json(
-      items.map((item) => ({
-        id: item.id,
-        tipo: item.tipo,
-        metros: numeric(item.metros),
-        ancho: numeric(item.ancho),
-        micras: numeric(item.micras),
-        camisa: item.camisa,
-        material: item.material,
-        estado: item.estado,
-        ordenId: item.ordenId,
-        creadoEn: item.creadoEn.toISOString(),
-      })),
-    );
+    const pedidosMap = await getPedidosByOrderIds([id]);
+    const related = pedidosMap.get(id) ?? [];
+    res.json(items.map((item) => coilView(item, related)));
   } catch (error) {
     next(error);
   }
@@ -411,23 +451,21 @@ router.get("/inventory", async (_req, res, next) => {
       .from(coils)
       .where(eq(coils.estado, "DISPONIBLE"))
       .orderBy(asc(coils.id));
+    const orderIds = items
+      .map((i) => i.ordenId)
+      .filter((id): id is number => id !== null);
+    const pedidosMap = await getPedidosByOrderIds(orderIds);
     res.json({
       totalMetros: items.reduce(
         (total, item) => total + numeric(item.metros),
         0,
       ),
-      items: items.map((item) => ({
-        id: item.id,
-        tipo: item.tipo,
-        metros: numeric(item.metros),
-        ancho: numeric(item.ancho),
-        micras: numeric(item.micras),
-        camisa: item.camisa,
-        material: item.material,
-        estado: item.estado,
-        ordenId: item.ordenId,
-        creadoEn: item.creadoEn.toISOString(),
-      })),
+      items: items.map((item) =>
+        coilView(
+          item,
+          item.ordenId ? (pedidosMap.get(item.ordenId) ?? []) : [],
+        ),
+      ),
     });
   } catch (error) {
     next(error);
@@ -437,7 +475,7 @@ router.get("/inventory", async (_req, res, next) => {
 router.post("/inventory/coils", async (req, res, next) => {
   try {
     const body = AddManufacturedCoilBody.parse(req.body);
-    const result = await db.transaction(async (tx) => {
+    const { created, related } = await db.transaction(async (tx) => {
       const [order] = await tx
         .select()
         .from(productionOrders)
@@ -445,7 +483,7 @@ router.post("/inventory/coils", async (req, res, next) => {
         .for("update");
       if (!order || order.estado !== "ACTIVA")
         throw new Error("ORDER_INACTIVE");
-      const [created] = await tx
+      const [inserted] = await tx
         .insert(coils)
         .values({
           tipo: "BOBINA",
@@ -468,15 +506,24 @@ router.post("/inventory/coils", async (req, res, next) => {
           .set({ estado: "FINALIZADA", finalizadaEn: new Date() })
           .where(eq(productionOrders.id, order.id));
       }
-      return created;
+      const relatedRecords = await tx
+        .select()
+        .from(productionOrderPedidos)
+        .where(eq(productionOrderPedidos.ordenId, order.id))
+        .orderBy(
+          asc(productionOrderPedidos.vinculadoEn),
+          asc(productionOrderPedidos.id),
+        );
+      const relatedList: RelatedPedidoView[] = relatedRecords.map((r) => ({
+        id: r.id,
+        pedidoId: r.pedidoId,
+        numeroPedidoCliente: r.numeroPedidoCliente,
+        metros: numeric(r.metros),
+        vinculadoEn: r.vinculadoEn.toISOString(),
+      }));
+      return { created: inserted, related: relatedList };
     });
-    res.status(201).json({
-      ...result,
-      metros: numeric(result.metros),
-      ancho: numeric(result.ancho),
-      micras: numeric(result.micras),
-      creadoEn: result.creadoEn.toISOString(),
-    });
+    res.status(201).json(coilView(created, related));
   } catch (error) {
     if (error instanceof Error && error.message === "ORDER_INACTIVE") {
       res.status(400).json({ error: "La orden ya no está activa" });
@@ -505,13 +552,7 @@ router.post("/inventory/remnants", async (req, res, next) => {
         estado: "DISPONIBLE",
       })
       .returning();
-    res.status(201).json({
-      ...created,
-      metros: numeric(created.metros),
-      ancho: numeric(created.ancho),
-      micras: numeric(created.micras),
-      creadoEn: created.creadoEn.toISOString(),
-    });
+    res.status(201).json(coilView(created, []));
   } catch (error) {
     next(error);
   }
@@ -531,13 +572,12 @@ router.post("/inventory/:id/consume", async (req, res, next) => {
       res.status(404).json({ error: "La bobina ya no está disponible" });
       return;
     }
-    res.json({
-      ...updated,
-      metros: numeric(updated.metros),
-      ancho: numeric(updated.ancho),
-      micras: numeric(updated.micras),
-      creadoEn: updated.creadoEn.toISOString(),
-    });
+    let related: RelatedPedidoView[] = [];
+    if (updated.ordenId) {
+      const pedidosMap = await getPedidosByOrderIds([updated.ordenId]);
+      related = pedidosMap.get(updated.ordenId) ?? [];
+    }
+    res.json(coilView(updated, related));
   } catch (error) {
     next(error);
   }

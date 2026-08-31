@@ -213,6 +213,7 @@ export type Coil = CoilCharacteristics & ({
   estado: CoilStatus;
   /** @nullable */
   ordenId?: number | null;
+  pedidosRelacionados?: RelatedPedido[];
   creadoEn: string;
 });
 

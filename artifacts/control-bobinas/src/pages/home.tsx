@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, CirclePlus, Factory, Layers3, PackageCheck, RefreshCw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Check, CirclePlus, Factory, Layers3, Package, PackageCheck, RefreshCw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
 import {
   CoilTipo,
   getListInventoryQueryKey,
@@ -14,7 +14,7 @@ import {
   type Coil,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
-import { characteristicsLabel, CAMISAS, formatMeters, groupInventory, MATERIALES, parseCamisa } from '@/lib/domain';
+import { characteristicsLabel, CAMISAS, formatMeters, formatPedidosSummary, groupInventory, MATERIALES, parseCamisa } from '@/lib/domain';
 
 function LoadingState() {
   return <div className="space-y-3" aria-label="Cargando inventario" data-testid="loading-inventory"><div className="h-24 animate-pulse rounded-xl bg-muted" /><div className="grid gap-3 sm:grid-cols-2"><div className="h-36 animate-pulse rounded-xl bg-muted" /><div className="h-36 animate-pulse rounded-xl bg-muted" /></div></div>;
@@ -117,7 +117,37 @@ function Home() {
                   {groups.map((group) => (
                     <details key={`${group.ancho}-${group.micras}-${group.camisa}-${group.material}`} className="group rounded-xl border border-border bg-card transition open:border-primary/40" data-testid={`card-inventory-group-${group.id}`}>
                       <summary className="flex min-h-[116px] cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden"><div><span className="font-data text-[10px] font-semibold uppercase tracking-[.12em] text-primary">{group.material}</span><h3 className="mt-2 font-display text-3xl font-semibold leading-none">{group.ancho} <span className="text-base font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">·</span>{group.micras} <span className="text-base font-medium text-muted-foreground">µ</span></h3><p className="mt-2 text-xs text-muted-foreground">Camisa {group.camisa} · {group.count} {group.count === 1 ? 'unidad' : 'unidades'} · {formatMeters(group.total)} m</p></div><ChevronDown size={22} className="shrink-0 text-muted-foreground transition group-open:rotate-180" /></summary>
-                      <div className="border-t border-border px-5 pb-4">{group.items.map((item) => <div key={item.id} className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'} <span className="font-data font-normal">{formatMeters(item.metros)} m</span></p><p className="mt-1 text-xs text-muted-foreground">Entrada {new Date(item.creadoEn).toLocaleDateString('es-ES')}</p></div><button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button></div>)}</div>
+                      <div className="border-t border-border px-5 pb-4">
+                        {group.items.map((item) => {
+                          const itemPedidos = item.pedidosRelacionados ?? [];
+                          return (
+                            <div key={item.id} className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold">
+                                    {item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'} <span className="font-data font-normal">{formatMeters(item.metros)} m</span>
+                                  </p>
+                                  {item.ordenId && (
+                                    <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
+                                      ORD-{String(item.ordenId).padStart(4, '0')}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">Entrada {new Date(item.creadoEn).toLocaleDateString('es-ES')}</p>
+                                {itemPedidos.length > 0 ? (
+                                  <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">
+                                    <Package size={13} className="shrink-0" />
+                                    {formatPedidosSummary(itemPedidos)}
+                                  </p>
+                                ) : (
+                                  <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
+                                )}
+                              </div>
+                              <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </details>
                   ))}
                 </div>
@@ -126,7 +156,36 @@ function Home() {
 
             <section className="mt-10 pb-5">
               <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Unidades</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Lista para mover</h2></div><span className="font-data text-[10px] uppercase tracking-wider text-muted-foreground">{items.length} registros</span></div>
-              {items.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-inventory-list">No hay unidades disponibles.</div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><div className="hidden grid-cols-[1.2fr_.75fr_.8fr_.7fr_150px] gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid"><span>Identificación</span><span>Tipo</span><span>Metros</span><span>Estado</span><span /></div>{items.map((item) => <div key={item.id} className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.2fr_.75fr_.8fr_.7fr_150px] md:items-center md:gap-4 md:px-5"><div><p className="font-semibold text-foreground" data-testid={`text-inventory-item-${item.id}`}>{item.ancho} mm · {item.micras} µ</p><p className="mt-1 text-xs text-muted-foreground">Camisa {item.camisa} · {item.material}</p></div><span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">{item.tipo}</span><p className="font-data text-lg font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p><span className="flex items-center gap-1.5 text-xs font-medium text-[#3c7d52]"><span className="h-1.5 w-1.5 rounded-full bg-[#4c9a71]" />{item.estado}</span><button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button></div>)}</div>}
+              {items.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-inventory-list">No hay unidades disponibles.</div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><div className="hidden grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px] gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid"><span>Identificación / Pedido</span><span>Tipo</span><span>Metros</span><span>Estado</span><span /></div>{items.map((item) => {
+                const itemPedidos = item.pedidosRelacionados ?? [];
+                return (
+                  <div key={item.id} className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px] md:items-center md:gap-4 md:px-5">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground" data-testid={`text-inventory-item-${item.id}`}>{item.ancho} mm · {item.micras} µ</p>
+                        {item.ordenId && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
+                            ORD-{String(item.ordenId).padStart(4, '0')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">Camisa {item.camisa} · {item.material}</p>
+                      {itemPedidos.length > 0 ? (
+                        <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">
+                          <Package size={13} className="shrink-0" />
+                          {formatPedidosSummary(itemPedidos)}
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
+                      )}
+                    </div>
+                    <span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">{item.tipo}</span>
+                    <p className="font-data text-lg font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p>
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-[#3c7d52]"><span className="h-1.5 w-1.5 rounded-full bg-[#4c9a71]" />{item.estado}</span>
+                    <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
+                  </div>
+                );
+              })}</div>}
             </section>
           </>
         )}
@@ -134,7 +193,10 @@ function Home() {
 
       <Modal open={modal === 'manufactured'} onClose={() => setModal(null)} onSubmit={handleManufactured} eyebrow="Entrada de almacén" title="Bobina fabricada" submitLabel={addManufactured.isPending ? 'Registrando…' : 'Registrar bobina'} submitDisabled={addManufactured.isPending || activeOrders.length === 0}>
         {addManufactured.isError && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-manufactured">No se pudo registrar la bobina. Revisa los datos.</p>}
-        {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes activas</p><p className="mt-1 text-xs text-muted-foreground">Crea una orden en Producción antes de registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => <option key={order.id} value={order.id}>#{order.id} · {order.ancho} mm · {order.micras} µ · pendientes {formatMeters(order.metrosPendientes)} m</option>)}</select></Field><Field label="Metros fabricados" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 1.250" data-testid="input-manufactured-meters" /></Field></div>}
+        {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes activas</p><p className="mt-1 text-xs text-muted-foreground">Crea una orden en Producción antes de registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => {
+          const pedidosText = order.pedidosRelacionados && order.pedidosRelacionados.length > 0 ? ` [${formatPedidosSummary(order.pedidosRelacionados)}]` : '';
+          return <option key={order.id} value={order.id}>#{order.id}{pedidosText} · {order.ancho} mm · {order.micras} µ · pendientes {formatMeters(order.metrosPendientes)} m</option>;
+        })}</select></Field><Field label="Metros fabricados" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 1.250" data-testid="input-manufactured-meters" /></Field></div>}
       </Modal>
 
       <Modal open={modal === 'remnant'} onClose={() => setModal(null)} onSubmit={handleRemnant} eyebrow="Entrada de almacén" title="Añadir resto" submitLabel={addRemnant.isPending ? 'Guardando…' : 'Guardar resto'} submitDisabled={addRemnant.isPending}>
@@ -143,7 +205,7 @@ function Home() {
       </Modal>
 
       <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>
-        {pendingConsume && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Unidad seleccionada</p><p className="mt-2 font-semibold">{characteristicsLabel(pendingConsume)}</p><p className="mt-3 font-data text-3xl font-semibold">{formatMeters(pendingConsume.metros)} <span className="text-sm font-normal text-muted-foreground">metros</span></p></div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" /> Esta acción marcará el material como <strong className="text-foreground">EN FÁBRICA</strong>. Comprueba la unidad antes de continuar.</p>{consume.isError && <p className="mt-4 text-sm text-destructive" role="alert" data-testid="error-consume">No se pudo mover la unidad. Inténtalo de nuevo.</p>}</div>}
+        {pendingConsume && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">{pendingConsume.ordenId ? `Orden ORD-${String(pendingConsume.ordenId).padStart(4, '0')}` : 'Resto de almacén'}</p>{pendingConsume.pedidosRelacionados && pendingConsume.pedidosRelacionados.length > 0 && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{formatPedidosSummary(pendingConsume.pedidosRelacionados)}</span>}</div><p className="mt-2 font-semibold">{characteristicsLabel(pendingConsume)}</p><p className="mt-3 font-data text-3xl font-semibold">{formatMeters(pendingConsume.metros)} <span className="text-sm font-normal text-muted-foreground">metros</span></p></div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" /> Esta acción marcará el material como <strong className="text-foreground">EN FÁBRICA</strong>. Comprueba la unidad antes de continuar.</p>{consume.isError && <p className="mt-4 text-sm text-destructive" role="alert" data-testid="error-consume">No se pudo mover la unidad. Inténtalo de nuevo.</p>}</div>}
       </Modal>
     </div>
   );

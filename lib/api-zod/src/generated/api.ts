@@ -351,6 +351,13 @@ export const ListOrderCoilsResponseItem = zod.object({
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
   "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -372,6 +379,13 @@ export const ListInventoryResponse = zod.object({
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
   "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -400,6 +414,13 @@ export const AddManufacturedCoilResponse = zod.object({
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
   "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -431,6 +452,13 @@ export const AddProductionRemnantResponse = zod.object({
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
   "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),
@@ -453,6 +481,13 @@ export const ConsumeInventoryItemResponse = zod.object({
   "metros": zod.number(),
   "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
   "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
   "creadoEn": zod.coerce.date()
 }).and(zod.object({
   "ancho": zod.number(),

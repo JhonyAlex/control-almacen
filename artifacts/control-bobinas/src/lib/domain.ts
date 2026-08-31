@@ -1,4 +1,4 @@
-import type { Camisa, Material, Coil, ProductionOrder } from '@workspace/api-client-react';
+import type { Camisa, Material, Coil, ProductionOrder, RelatedPedido } from '@workspace/api-client-react';
 
 export const CAMISAS: Camisa[] = [
   400, 475, 520, '22-6-22', '21-8-21', '40-6-40', '40-8-40',
@@ -21,6 +21,15 @@ export const formatDate = (value: string) =>
 
 export const characteristicsLabel = (item: Coil | ProductionOrder) =>
   `${item.ancho} mm · ${item.micras} µ · camisa ${item.camisa} · ${item.material}`;
+
+export const formatPedidosSummary = (pedidos?: RelatedPedido[] | null): string => {
+  if (!pedidos || pedidos.length === 0) return 'Sin pedido asociado';
+  if (pedidos.length === 1) {
+    const p = pedidos[0];
+    return `Pedido ${p.numeroPedidoCliente || p.pedidoId}`;
+  }
+  return `Pedidos (${pedidos.length}): ${pedidos.map((p) => p.numeroPedidoCliente || p.pedidoId).join(', ')}`;
+};
 
 export const groupInventory = (items: Coil[]) => {
   const groups = new Map<string, Coil & { count: number; total: number; items: Coil[] }>();

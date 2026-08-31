@@ -1,6 +1,6 @@
-import { PackageOpen, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Package, PackageOpen, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useListInventory, type Coil } from '@workspace/api-client-react';
-import { characteristicsLabel, formatDate, formatMeters } from '@/lib/domain';
+import { characteristicsLabel, formatDate, formatMeters, formatPedidosSummary } from '@/lib/domain';
 
 function Material() {
   const inventory = useListInventory();
@@ -21,7 +21,33 @@ function Material() {
 }
 
 function MaterialRow({ item }: { item: Coil }) {
-  return <div className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.4fr_.65fr_.7fr_1fr] md:items-center md:gap-5 md:px-6"><div><p className="font-semibold">{characteristicsLabel(item)}</p><p className="mt-1 text-xs text-muted-foreground">Entrada registrada {formatDate(item.creadoEn)}</p></div><span className={`w-fit rounded-md px-2 py-1 font-data text-[10px] font-semibold ${item.tipo === 'RESTO' ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-foreground'}`}>{item.tipo}</span><p className="font-data text-xl font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p><span className="font-data text-[10px] uppercase tracking-wider text-[#3c7d52]">{item.estado}</span></div>;
+  const itemPedidos = item.pedidosRelacionados ?? [];
+  return (
+    <div className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.5fr_.6fr_.65fr_1fr] md:items-center md:gap-5 md:px-6">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold">{characteristicsLabel(item)}</p>
+          {item.ordenId && (
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
+              ORD-{String(item.ordenId).padStart(4, '0')}
+            </span>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">Entrada registrada {formatDate(item.creadoEn)}</p>
+        {itemPedidos.length > 0 ? (
+          <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">
+            <Package size={13} className="shrink-0" />
+            {formatPedidosSummary(itemPedidos)}
+          </p>
+        ) : (
+          <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido / Resto</p>
+        )}
+      </div>
+      <span className={`w-fit rounded-md px-2 py-1 font-data text-[10px] font-semibold ${item.tipo === 'RESTO' ? 'bg-secondary text-secondary-foreground' : 'bg-muted text-foreground'}`}>{item.tipo}</span>
+      <p className="font-data text-xl font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p>
+      <span className="font-data text-[10px] uppercase tracking-wider text-[#3c7d52]">{item.estado}</span>
+    </div>
+  );
 }
 
 export default Material;

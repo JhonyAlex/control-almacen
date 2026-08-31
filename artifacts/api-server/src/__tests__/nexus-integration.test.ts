@@ -392,6 +392,90 @@ function handleSetOrderBlocked(id: number, blocked: boolean) {
   return { status: 200, body: { id: order.id, estado: order.estado } };
 }
 
+function handleAddManufacturedCoil(ordenId: number, metros: number) {
+  const order = testDb.orders.find((o) => o.id === ordenId);
+  if (!order || order.estado !== "ACTIVA") {
+    return { status: 400 as const, body: { error: "La orden ya no está activa" } };
+  }
+  const coil: DbCoil = {
+    id: testDb.coils.length + 1,
+    ordenId,
+    metros: String(metros),
+  };
+  testDb.coils.push(coil);
+  const total = testDb.calculateCoilsFabricados(ordenId);
+  if (total >= Number(order.metrosNecesarios)) {
+    order.estado = "FINALIZADA";
+    order.finalizadaEn = new Date();
+  }
+  const related = testDb.orderPedidos
+    .filter((p) => p.ordenId === ordenId)
+    .map((p) => ({
+      id: p.id,
+      pedidoId: p.pedidoId,
+      numeroPedidoCliente: p.numeroPedidoCliente,
+      metros: Number(p.metros),
+      vinculadoEn: p.vinculadoEn.toISOString(),
+    }));
+  return {
+    status: 201 as const,
+    body: {
+      id: coil.id,
+      tipo: "BOBINA",
+      metros: Number(coil.metros),
+      ordenId: coil.ordenId,
+      pedidosRelacionados: related,
+    },
+  };
+}
+
+function handleGetInventory() {
+  return {
+    totalMetros: testDb.coils.reduce((sum, c) => sum + Number(c.metros), 0),
+    items: testDb.coils.map((c) => {
+      const related = c.ordenId
+        ? testDb.orderPedidos
+            .filter((p) => p.ordenId === c.ordenId)
+            .map((p) => ({
+              id: p.id,
+              pedidoId: p.pedidoId,
+              numeroPedidoCliente: p.numeroPedidoCliente,
+              metros: Number(p.metros),
+              vinculadoEn: p.vinculadoEn.toISOString(),
+            }))
+        : [];
+      return {
+        id: c.id,
+        tipo: "BOBINA",
+        metros: Number(c.metros),
+        ordenId: c.ordenId,
+        pedidosRelacionados: related,
+      };
+    }),
+  };
+}
+
+function handleGetOrderCoils(ordenId: number) {
+  const related = testDb.orderPedidos
+    .filter((p) => p.ordenId === ordenId)
+    .map((p) => ({
+      id: p.id,
+      pedidoId: p.pedidoId,
+      numeroPedidoCliente: p.numeroPedidoCliente,
+      metros: Number(p.metros),
+      vinculadoEn: p.vinculadoEn.toISOString(),
+    }));
+  return testDb.coils
+    .filter((c) => c.ordenId === ordenId)
+    .map((c) => ({
+      id: c.id,
+      tipo: "BOBINA",
+      metros: Number(c.metros),
+      ordenId: c.ordenId,
+      pedidosRelacionados: related,
+    }));
+}
+
 // ============================================================================
 // SUITE DE TESTS - FASE 2: INTEGRACIÓN NEXUS EN CONTROL-ALMACEN (Escenarios A-W)
 // ============================================================================
@@ -1130,5 +1214,96 @@ describe("Fase 2: Integración Nexus en control-almacen", () => {
       assert.ok(customOrder);
       assert.equal(customOrder.camisa, "CUSTOM-650-EXT");
     }
+  });
+
+  // --- Tests X, Y, Z: Trazabilidad de pedidos en bobinas e inventario ---
+  it("X. Bobina fabricada desde orden con 1 pedido devuelve pedidosRelacionados con el pedido correspondiente", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "55555555-5555-4555-8555-555555555555",
+      pedidoId: "PED-SINGLE",
+      numeroPedidoCliente: "2600777",
+      metros: 5000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 30,
+    });
+
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      const resCoil = handleAddManufacturedCoil(orderId, 2500);
+      assert.equal(resCoil.status, 201);
+      if (resCoil.status === 201) {
+        assert.equal(resCoil.body.pedidosRelacionados.length, 1);
+        assert.equal(resCoil.body.pedidosRelacionados[0].numeroPedidoCliente, "2600777");
+
+        const inv = handleGetInventory();
+        assert.equal(inv.items.length, 1);
+        assert.equal(inv.items[0].pedidosRelacionados.length, 1);
+        assert.equal(inv.items[0].pedidosRelacionados[0].pedidoId, "PED-SINGLE");
+
+        const orderCoils = handleGetOrderCoils(orderId);
+        assert.equal(orderCoils.length, 1);
+        assert.equal(orderCoils[0].pedidosRelacionados.length, 1);
+      }
+    }
+  });
+
+  it("Y. Bobina fabricada desde orden con pedidos agrupados devuelve todos los pedidos vinculados", async () => {
+    await handleNexusOrder({
+      eventId: "66666666-6666-4666-8666-666666666666",
+      pedidoId: "PED-G1",
+      numeroPedidoCliente: "2600111",
+      metros: 3000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 30,
+    });
+
+    const res2 = await handleNexusOrder({
+      eventId: "77777777-7777-4777-8777-777777777777",
+      pedidoId: "PED-G2",
+      numeroPedidoCliente: "2600222",
+      metros: 4000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 30,
+    });
+
+    assert.equal(res2.status, 200);
+    if (res2.status === 200) {
+      const orderId = res2.body.orderId;
+      const resCoil = handleAddManufacturedCoil(orderId, 7000);
+      assert.equal(resCoil.status, 201);
+      if (resCoil.status === 201) {
+        assert.equal(resCoil.body.pedidosRelacionados.length, 2);
+        assert.equal(resCoil.body.pedidosRelacionados[0].numeroPedidoCliente, "2600111");
+        assert.equal(resCoil.body.pedidosRelacionados[1].numeroPedidoCliente, "2600222");
+
+        const inv = handleGetInventory();
+        const coilItem = inv.items.find((c) => c.id === resCoil.body.id)!;
+        assert.ok(coilItem);
+        assert.equal(coilItem.pedidosRelacionados.length, 2);
+
+        const orderCoils = handleGetOrderCoils(orderId);
+        assert.equal(orderCoils[0].pedidosRelacionados.length, 2);
+      }
+    }
+  });
+
+  it("Z. Resto sin orden asociada devuelve pedidosRelacionados como array vacío", async () => {
+    testDb.coils.push({
+      id: testDb.coils.length + 1,
+      ordenId: null,
+      metros: "1200",
+    });
+
+    const inv = handleGetInventory();
+    assert.equal(inv.items.length, 1);
+    assert.equal(inv.items[0].ordenId, null);
+    assert.deepEqual(inv.items[0].pedidosRelacionados, []);
   });
 });

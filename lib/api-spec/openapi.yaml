@@ -724,6 +724,10 @@ components:
               $ref: "#/components/schemas/CoilStatus"
             ordenId:
               type: ["number", "null"]
+            pedidosRelacionados:
+              type: array
+              items:
+                $ref: "#/components/schemas/RelatedPedido"
             creadoEn:
               type: string
               format: date-time

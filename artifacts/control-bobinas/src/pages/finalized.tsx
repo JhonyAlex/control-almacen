@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Archive, CheckCircle2, ChevronDown, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Archive, CheckCircle2, ChevronDown, Layers, Package, RefreshCw, TriangleAlert } from 'lucide-react';
 import { OrderStatus, getListOrderCoilsQueryKey, useListOrderCoils, useListOrders, type ProductionOrder } from '@workspace/api-client-react';
-import { formatDate, formatMeters } from '@/lib/domain';
+import { formatDate, formatMeters, formatPedidosSummary } from '@/lib/domain';
 
 function Finalized() {
   const ordersQuery = useListOrders({ status: OrderStatus.FINALIZADA });
@@ -12,7 +12,74 @@ function Finalized() {
 function FinalizedRow({ order }: { order: ProductionOrder }) {
   const [open, setOpen] = useState(false);
   const coilsQuery = useListOrderCoils(order.id, { query: { enabled: open, queryKey: getListOrderCoilsQueryKey(order.id) } });
-  return <div className="rounded-xl border border-border bg-card" data-testid={`row-finalized-order-${order.id}`}><button type="button" onClick={() => setOpen(!open)} className="flex min-h-24 w-full items-center gap-4 px-4 py-5 text-left sm:px-6"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eaf4eb] text-[#347349]"><CheckCircle2 size={19} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-3"><span className="font-data text-sm font-semibold">ORD-{String(order.id).padStart(4, '0')}</span><span className="font-data text-[10px] uppercase tracking-wider text-[#3c7d52]">{order.estado}</span></div><p className="mt-2 font-semibold">{order.ancho} mm · {order.micras} µ · Camisa {order.camisa} · {order.material}</p><div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"><span>Creada: {formatDate(order.creadoEn)}</span><span>Finalizada: {order.finalizadaEn ? formatDate(order.finalizadaEn) : '—'}</span></div></div><div className="hidden text-right sm:block"><p className="font-data font-semibold">{formatMeters(order.metrosFabricados)} m</p><p className="text-xs text-muted-foreground">de {formatMeters(order.metrosNecesarios)} m</p></div><ChevronDown size={22} className={`shrink-0 text-muted-foreground transition ${open ? 'rotate-180' : ''}`} /></button>{open && <div className="border-t border-border px-4 pb-4 sm:px-6"><p className="py-3 font-data text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">Bobinas de esta orden</p>{coilsQuery.isLoading ? <div className="h-12 animate-pulse rounded-lg bg-muted" /> : <div className="divide-y divide-border rounded-lg border border-border">{(coilsQuery.data ?? []).map((coil) => <div key={coil.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="font-semibold">{coil.tipo} · {formatMeters(coil.metros)} m</p><p className="text-xs text-muted-foreground">Creada: {formatDate(coil.creadoEn)}</p></div><span className="font-data text-[10px] uppercase text-muted-foreground">{coil.estado}</span></div>)}</div>}</div>}</div>;
+  const pedidos = order.pedidosRelacionados ?? [];
+  return (
+    <div className="rounded-xl border border-border bg-card" data-testid={`row-finalized-order-${order.id}`}>
+      <button type="button" onClick={() => setOpen(!open)} className="flex min-h-24 w-full items-center gap-4 px-4 py-5 text-left sm:px-6">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eaf4eb] text-[#347349]"><CheckCircle2 size={19} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-data text-sm font-semibold">ORD-{String(order.id).padStart(4, '0')}</span>
+            <span className="font-data text-[10px] uppercase tracking-wider text-[#3c7d52]">{order.estado}</span>
+            {order.origen === 'GESTION_PEDIDOS' && <span className="rounded bg-primary/10 px-2 py-0.5 font-data text-[10px] font-semibold text-primary">Nexus</span>}
+          </div>
+          <p className="mt-2 font-semibold">{order.ancho} mm · {order.micras} µ · Camisa {order.camisa} · {order.material}</p>
+          {pedidos.length === 1 && (
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <Package size={13} className="shrink-0" /> Pedido: {pedidos[0].numeroPedidoCliente || pedidos[0].pedidoId}
+            </p>
+          )}
+          {pedidos.length > 1 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1 text-xs font-semibold text-primary">
+                <Layers size={13} className="shrink-0" /> {pedidos.length} pedidos agrupados:
+              </span>
+              {pedidos.map((p) => (
+                <span key={p.id} className="rounded bg-secondary px-1.5 py-0.5 font-data text-[10px] font-medium text-secondary-foreground">
+                  {p.numeroPedidoCliente || p.pedidoId} ({formatMeters(p.metros)} m)
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+            <span>Creada: {formatDate(order.creadoEn)}</span>
+            <span>Finalizada: {order.finalizadaEn ? formatDate(order.finalizadaEn) : '—'}</span>
+          </div>
+        </div>
+        <div className="hidden text-right sm:block">
+          <p className="font-data font-semibold">{formatMeters(order.metrosFabricados)} m</p>
+          <p className="text-xs text-muted-foreground">de {formatMeters(order.metrosNecesarios)} m</p>
+        </div>
+        <ChevronDown size={22} className={`shrink-0 text-muted-foreground transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="border-t border-border px-4 pb-4 sm:px-6">
+          <p className="py-3 font-data text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">Bobinas de esta orden</p>
+          {coilsQuery.isLoading ? (
+            <div className="h-12 animate-pulse rounded-lg bg-muted" />
+          ) : (
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {(coilsQuery.data ?? []).map((coil) => {
+                const coilPedidos = coil.pedidosRelacionados ?? pedidos;
+                return (
+                  <div key={coil.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div>
+                      <p className="font-semibold">{coil.tipo} · {formatMeters(coil.metros)} m</p>
+                      {coilPedidos.length > 0 && (
+                        <p className="text-xs text-primary font-medium">{formatPedidosSummary(coilPedidos)}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">Creada: {formatDate(coil.creadoEn)}</p>
+                    </div>
+                    <span className="font-data text-[10px] uppercase text-muted-foreground">{coil.estado}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default Finalized;
