@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@workspace/db";
 import { authSessions, users } from "@workspace/db/schema";
-import { hashPassword, normalizeEmail, requireAdmin, requireAuth, toPublicUser } from "../lib/auth";
+import { hashPassword, normalizeEmail, requireAdmin, requireAuth, toPublicUser, USER_ROLES } from "../lib/auth";
 
 const router: IRouter = Router();
 const userIdParams = z.object({ id: z.coerce.number().int().positive() });
@@ -11,6 +11,12 @@ const createUserSchema = z.object({
   nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100),
   email: z.string().trim().email("Introduce un email válido").max(200),
   password: z.string().min(12, "La contraseña debe tener al menos 12 caracteres").max(200),
+  role: z.enum([USER_ROLES.ADMIN, USER_ROLES.USER]).default(USER_ROLES.USER),
+});
+const updateUserSchema = z.object({
+  nombre: z.string().trim().min(1, "El nombre es obligatorio").max(100),
+  email: z.string().trim().email("Introduce un email válido").max(200),
+  role: z.enum([USER_ROLES.ADMIN, USER_ROLES.USER]),
 });
 
 router.use(requireAuth, requireAdmin);
@@ -31,10 +37,56 @@ router.post("/users", async (req, res, next) => {
       nombre: body.nombre,
       email: normalizeEmail(body.email),
       passwordHash: await hashPassword(body.password),
-      role: "USER",
+      role: body.role,
       isActive: true,
     }).returning();
     res.status(201).json(toPublicUser(user));
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      res.status(409).json({ error: "El email ya está registrado" });
+      return;
+    }
+    next(error);
+  }
+});
+
+router.patch("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = userIdParams.parse(req.params);
+    const body = updateUserSchema.parse(req.body);
+    if (req.authUser?.id === id && body.role !== req.authUser.role) {
+      res.status(400).json({ error: "No puedes cambiar tu propio rol" });
+      return;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(481928)`);
+      const [current] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+      if (!current) return { kind: "MISSING" as const };
+      if (current.role === USER_ROLES.ADMIN && body.role !== USER_ROLES.ADMIN && current.isActive) {
+        const [{ total }] = await tx
+          .select({ total: count() })
+          .from(users)
+          .where(and(eq(users.role, USER_ROLES.ADMIN), eq(users.isActive, true)));
+        if (total <= 1) return { kind: "LAST_ADMIN" as const };
+      }
+      const [updated] = await tx.update(users).set({
+        nombre: body.nombre,
+        email: normalizeEmail(body.email),
+        role: body.role,
+      }).where(eq(users.id, id)).returning();
+      return { kind: "UPDATED" as const, user: updated };
+    });
+
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "El usuario no existe" });
+      return;
+    }
+    if (result.kind === "LAST_ADMIN") {
+      res.status(400).json({ error: "Debe permanecer al menos un administrador activo" });
+      return;
+    }
+    res.json(toPublicUser(result.user));
   } catch (error) {
     if (isUniqueViolation(error)) {
       res.status(409).json({ error: "El email ya está registrado" });
@@ -53,12 +105,58 @@ router.patch("/users/:id/status", async (req, res, next) => {
       return;
     }
 
-    const [updated] = await db.update(users).set({ isActive }).where(eq(users.id, id)).returning();
-    if (!updated) {
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(481928)`);
+      const [current] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+      if (!current) return { kind: "MISSING" as const };
+      if (!isActive && current.role === USER_ROLES.ADMIN) {
+        const [{ total }] = await tx.select({ total: count() }).from(users).where(and(eq(users.role, USER_ROLES.ADMIN), eq(users.isActive, true)));
+        if (total <= 1) return { kind: "LAST_ADMIN" as const };
+      }
+      const [updated] = await tx.update(users).set({ isActive }).where(eq(users.id, id)).returning();
+      return { kind: "UPDATED" as const, user: updated };
+    });
+    if (result.kind === "MISSING") {
       res.status(404).json({ error: "El usuario no existe" });
       return;
     }
-    res.json(toPublicUser(updated));
+    if (result.kind === "LAST_ADMIN") {
+      res.status(400).json({ error: "Debe permanecer al menos un administrador activo" });
+      return;
+    }
+    res.json(toPublicUser(result.user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = userIdParams.parse(req.params);
+    if (req.authUser?.id === id) {
+      res.status(400).json({ error: "No puedes eliminar tu propia cuenta" });
+      return;
+    }
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(481928)`);
+      const [current] = await tx.select().from(users).where(eq(users.id, id)).for("update");
+      if (!current) return { kind: "MISSING" as const };
+      if (current.role === USER_ROLES.ADMIN && current.isActive) {
+        const [{ total }] = await tx.select({ total: count() }).from(users).where(and(eq(users.role, USER_ROLES.ADMIN), eq(users.isActive, true)));
+        if (total <= 1) return { kind: "LAST_ADMIN" as const };
+      }
+      await tx.delete(users).where(eq(users.id, id));
+      return { kind: "DELETED" as const };
+    });
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "El usuario no existe" });
+      return;
+    }
+    if (result.kind === "LAST_ADMIN") {
+      res.status(400).json({ error: "Debe permanecer al menos un administrador activo" });
+      return;
+    }
+    res.status(204).end();
   } catch (error) {
     next(error);
   }

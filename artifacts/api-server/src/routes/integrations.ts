@@ -177,6 +177,7 @@ router.post(
         }
 
         // No compatible active order: create new GESTION_PEDIDOS order
+        await tx.execute(sql`select pg_advisory_xact_lock(481929)`);
         const [newOrder] = await tx
           .insert(productionOrders)
           .values({
@@ -187,6 +188,7 @@ router.post(
             metrosNecesarios: String(payload.metros),
             estado: "ACTIVA",
             origen: "GESTION_PEDIDOS",
+            orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders}), 0) - 1`,
           })
           .returning();
 

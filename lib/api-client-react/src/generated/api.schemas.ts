@@ -36,6 +36,14 @@ export interface UserCredentialsInput {
   email: string;
   /** @minLength 12 */
   password: string;
+  role?: UserRole;
+}
+
+export interface UserUpdateInput {
+  /** @minLength 1 */
+  nombre: string;
+  email: string;
+  role: UserRole;
 }
 
 export interface LoginInput {
@@ -117,6 +125,11 @@ export type OrderInput = CoilCharacteristics & {
 
 export interface OrderBlockInput {
   blocked: boolean;
+}
+
+export interface OrderReorderInput {
+  /** @minItems 1 */
+  orderIds: number[];
 }
 
 export type OrderOrigin = typeof OrderOrigin[keyof typeof OrderOrigin];

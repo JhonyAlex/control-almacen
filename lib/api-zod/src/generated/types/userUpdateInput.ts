@@ -7,11 +7,9 @@
  */
 import type { UserRole } from './userRole';
 
-export interface UserCredentialsInput {
+export interface UserUpdateInput {
   /** @minLength 1 */
   nombre: string;
   email: string;
-  /** @minLength 12 */
-  password: string;
-  role?: UserRole;
+  role: UserRole;
 }

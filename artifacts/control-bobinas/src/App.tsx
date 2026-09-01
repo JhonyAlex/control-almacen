@@ -60,9 +60,9 @@ function AuthenticatedRouter({ user }: { user: User }) {
     <RoutedErrorBoundary>
       <Shell user={user}>
         <Switch>
-          <Route path="/" component={Home} />
+          <Route path="/">{() => <Home canManage={user.role === 'ADMIN'} />}</Route>
           <Route path="/material" component={Material} />
-          <Route path="/produccion" component={Production} />
+          <Route path="/produccion">{() => <Production canManage={user.role === 'ADMIN'} />}</Route>
           <Route path="/finalizadas" component={Finalized} />
           <Route path="/usuarios">{() => user.role === 'ADMIN' ? <Users /> : <NotFound />}</Route>
           <Route component={NotFound} />

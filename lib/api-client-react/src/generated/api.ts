@@ -32,13 +32,15 @@ import type {
   NexusOrderResponse,
   OrderBlockInput,
   OrderInput,
+  OrderReorderInput,
   PasswordInput,
   ProductionOrder,
   RemnantInput,
   SessionResponse,
   User,
   UserCredentialsInput,
-  UserStatusInput
+  UserStatusInput,
+  UserUpdateInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -677,7 +679,7 @@ export const getCreateUserUrl = () => {
 }
 
 /**
- * @summary Create a normal user
+ * @summary Create a user
  */
 export const createUser = async (userCredentialsInput: UserCredentialsInput, options?: Parameters<typeof customFetch>[1]): Promise<User> => {
 
@@ -726,7 +728,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateUserMutationError = ErrorType<void>
 
     /**
- * @summary Create a normal user
+ * @summary Create a user
  */
 export const useCreateUser = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: BodyType<UserCredentialsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -737,6 +739,149 @@ export const useCreateUser = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateUserMutationOptions(options));
+    }
+
+export const getUpdateUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}`
+}
+
+/**
+ * @summary Edit a user and assign its role
+ */
+export const updateUser = async (id: number,
+    userUpdateInput: UserUpdateInput, options?: Parameters<typeof customFetch>[1]): Promise<User> => {
+
+  return customFetch<User>(getUpdateUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(userUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, {id: number;data: BodyType<UserUpdateInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateUser>>>
+    export type UpdateUserMutationBody = BodyType<UserUpdateInput>
+    export type UpdateUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Edit a user and assign its role
+ */
+export const useUpdateUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: number;data: BodyType<UserUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateUser>>,
+        TError,
+        {id: number;data: BodyType<UserUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateUserMutationOptions(options));
+    }
+
+export const getDeleteUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/users/${id}`
+}
+
+/**
+ * @summary Delete a user
+ */
+export const deleteUser = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteUserMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUser>>>
+
+    export type DeleteUserMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a user
+ */
+export const useDeleteUser = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUser>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteUserMutationOptions(options));
     }
 
 export const getSetUserStatusUrl = (id: number,) => {
@@ -1251,6 +1396,77 @@ export const useSetOrderBlocked = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSetOrderBlockedMutationOptions(options));
+    }
+
+export const getReorderOrdersUrl = () => {
+
+
+
+
+  return `/api/orders/reorder`
+}
+
+/**
+ * @summary Set the priority order of all active production orders
+ */
+export const reorderOrders = async (orderReorderInput: OrderReorderInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getReorderOrdersUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderReorderInput)
+  }
+);}
+
+
+
+
+
+export const getReorderOrdersMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderOrders>>, TError,{data: BodyType<OrderReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderOrders>>, TError,{data: BodyType<OrderReorderInput>}, TContext> => {
+
+const mutationKey = ['reorderOrders'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderOrders>>, {data: BodyType<OrderReorderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorderOrders(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderOrdersMutationResult = NonNullable<Awaited<ReturnType<typeof reorderOrders>>>
+    export type ReorderOrdersMutationBody = BodyType<OrderReorderInput>
+    export type ReorderOrdersMutationError = ErrorType<void>
+
+    /**
+ * @summary Set the priority order of all active production orders
+ */
+export const useReorderOrders = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderOrders>>, TError,{data: BodyType<OrderReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderOrders>>,
+        TError,
+        {data: BodyType<OrderReorderInput>},
+        TContext
+      > => {
+      return useMutation(getReorderOrdersMutationOptions(options));
     }
 
 export const getListOrderCoilsUrl = (id: number,) => {

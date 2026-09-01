@@ -22,6 +22,13 @@
       "when": 1787842520189,
       "tag": "0002_nexus_orders_integration",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788277076846,
+      "tag": "0003_user_management_and_order_priority",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   AddManufacturedCoilBody,
   AddProductionRemnantBody,
@@ -12,6 +12,7 @@ import {
   DeleteOrderParams,
   ListOrderCoilsParams,
   ListOrdersQueryParams,
+  ReorderOrdersBody,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import {
@@ -19,7 +20,7 @@ import {
   productionOrders,
   productionOrderPedidos,
 } from "@workspace/db/schema";
-import { requireAuth } from "../lib/auth";
+import { requireAdmin, requireAuth } from "../lib/auth";
 import {
   getNexusGroupKey,
   normalizeCamisa,
@@ -133,7 +134,7 @@ async function ordersWithTotals(status?: string) {
   const orders = await db
     .select()
     .from(productionOrders)
-    .orderBy(asc(productionOrders.id));
+    .orderBy(asc(productionOrders.orden), desc(productionOrders.id));
   const totals = await db
     .select({
       ordenId: coils.ordenId,
@@ -188,32 +189,73 @@ router.get("/orders", async (req, res, next) => {
   }
 });
 
-router.post("/orders", async (req, res, next) => {
+router.post("/orders", requireAdmin, async (req, res, next) => {
   try {
     const body = CreateOrderBody.parse(req.body);
     if (!CAMISAS.has(String(body.camisa)) || !MATERIALES.has(body.material)) {
       res.status(400).json({ error: "Características no válidas" });
       return;
     }
-    const [order] = await db
-      .insert(productionOrders)
-      .values({
-        ancho: String(body.ancho),
-        micras: String(body.micras),
-        camisa: String(body.camisa),
-        material: body.material,
-        metrosNecesarios: String(body.metrosNecesarios),
-        estado: "ACTIVA",
-        origen: "MANUAL",
-      })
-      .returning();
+    const order = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(481929)`);
+      const [created] = await tx
+        .insert(productionOrders)
+        .values({
+          ancho: String(body.ancho),
+          micras: String(body.micras),
+          camisa: String(body.camisa),
+          material: body.material,
+          metrosNecesarios: String(body.metrosNecesarios),
+          estado: "ACTIVA",
+          origen: "MANUAL",
+          orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders}), 0) - 1`,
+        })
+        .returning();
+      return created;
+    });
     res.status(201).json(orderView(order, 0, []));
   } catch (error) {
     next(error);
   }
 });
 
-router.delete("/orders/:id", async (req, res, next) => {
+router.patch("/orders/reorder", requireAdmin, async (req, res, next) => {
+  try {
+    const { orderIds } = ReorderOrdersBody.parse(req.body);
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(481929)`);
+      const activeOrders = await tx
+        .select({ id: productionOrders.id })
+        .from(productionOrders)
+        .where(eq(productionOrders.estado, "ACTIVA"));
+      const activeIds = new Set(activeOrders.map((order) => order.id));
+      const isExactOrder =
+        orderIds.length === activeIds.size &&
+        new Set(orderIds).size === orderIds.length &&
+        orderIds.every((id) => activeIds.has(id));
+      if (!isExactOrder) return false;
+
+      await Promise.all(
+        orderIds.map((id, index) =>
+          tx
+            .update(productionOrders)
+            .set({ orden: index })
+            .where(eq(productionOrders.id, id)),
+        ),
+      );
+      return true;
+    });
+    if (!result) {
+      res.status(409).json({ error: "La lista de órdenes cambió. Actualiza e inténtalo de nuevo." });
+      return;
+    }
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/orders/:id", requireAdmin, async (req, res, next) => {
   try {
     const { id } = DeleteOrderParams.parse({ id: Number(req.params.id) });
     const active = await ordersWithTotals("ACTIVA");
@@ -236,7 +278,7 @@ router.delete("/orders/:id", async (req, res, next) => {
   }
 });
 
-router.patch("/orders/:id", async (req, res, next) => {
+router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
   try {
     const { id } = UpdateOrderParams.parse({ id: Number(req.params.id) });
     const body = UpdateOrderBody.parse(req.body);
@@ -311,7 +353,7 @@ router.patch("/orders/:id", async (req, res, next) => {
   }
 });
 
-router.patch("/orders/:id/blocked", async (req, res, next) => {
+router.patch("/orders/:id/blocked", requireAdmin, async (req, res, next) => {
   try {
     const { id } = SetOrderBlockedParams.parse({ id: Number(req.params.id) });
     const { blocked } = SetOrderBlockedBody.parse(req.body);
@@ -472,7 +514,7 @@ router.get("/inventory", async (_req, res, next) => {
   }
 });
 
-router.post("/inventory/coils", async (req, res, next) => {
+router.post("/inventory/coils", requireAdmin, async (req, res, next) => {
   try {
     const body = AddManufacturedCoilBody.parse(req.body);
     const { created, related } = await db.transaction(async (tx) => {
@@ -533,7 +575,7 @@ router.post("/inventory/coils", async (req, res, next) => {
   }
 });
 
-router.post("/inventory/remnants", async (req, res, next) => {
+router.post("/inventory/remnants", requireAdmin, async (req, res, next) => {
   try {
     const body = AddProductionRemnantBody.parse(req.body);
     if (!CAMISAS.has(String(body.camisa)) || !MATERIALES.has(body.material)) {
@@ -558,7 +600,7 @@ router.post("/inventory/remnants", async (req, res, next) => {
   }
 });
 
-router.post("/inventory/:id/consume", async (req, res, next) => {
+router.post("/inventory/:id/consume", requireAdmin, async (req, res, next) => {
   try {
     const { id } = ConsumeInventoryItemParams.parse({
       id: Number(req.params.id),

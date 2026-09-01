@@ -164,7 +164,7 @@ export const requireAuth: RequestHandler = async (req, res, next: NextFunction) 
 
 export const requireAdmin: RequestHandler = (req, res, next) => {
   if (req.authUser?.role !== USER_ROLES.ADMIN) {
-    res.status(403).json({ error: "Solo un administrador puede gestionar usuarios" });
+    res.status(403).json({ error: "Solo un administrador puede realizar esta acción" });
     return;
   }
   next();

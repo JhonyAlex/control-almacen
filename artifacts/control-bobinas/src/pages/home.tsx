@@ -24,7 +24,7 @@ function QueryError({ onRetry }: { onRetry: () => void }) {
   return <div className="flex flex-col items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6" role="alert" data-testid="error-inventory"><div className="flex items-center gap-3 text-destructive"><TriangleAlert size={21} /><p className="font-semibold">No se pudo cargar el almacén</p></div><p className="text-sm text-muted-foreground">Comprueba la conexión y vuelve a intentarlo.</p><button type="button" onClick={onRetry} className="pressable flex min-h-11 items-center gap-2 rounded-lg bg-destructive px-4 text-sm font-semibold text-destructive-foreground" data-testid="button-retry-inventory"><RefreshCw size={16} /> Reintentar</button></div>;
 }
 
-function Home() {
+function Home({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
   const inventoryQuery = useListInventory();
   const ordersQuery = useListOrders({ status: OrderStatus.ACTIVA });
@@ -83,12 +83,12 @@ function Home() {
           <div>
             <p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Módulo 01 / almacén</p>
             <h1 className="mt-2 font-display text-[clamp(2.7rem,6vw,4.7rem)] font-semibold uppercase leading-[.88] tracking-wide text-foreground">Estado de stock</h1>
-            <p className="mt-3 max-w-xl text-sm text-muted-foreground">Material disponible para expedición a fábrica. Registra entradas y mueve bobinas con una sola acción.</p>
+            <p className="mt-3 max-w-xl text-sm text-muted-foreground">Material disponible para expedición a fábrica.{canManage ? ' Registra entradas y mueve bobinas con una sola acción.' : ' Tu acceso es solo de lectura.'}</p>
           </div>
-          <div className="flex gap-2.5">
+          {canManage && <div className="flex gap-2.5">
             <button type="button" onClick={() => { setNotice(null); setModal('remnant'); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted sm:px-5" data-testid="button-add-remnant"><CirclePlus size={18} /> Añadir resto</button>
             <button type="button" onClick={() => { setNotice(null); setModal('manufactured'); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:brightness-110 sm:px-5" data-testid="button-add-manufactured"><Factory size={18} /> Bobina fabricada</button>
-          </div>
+          </div>}
         </div>
 
         {notice && <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#a9c9b1] bg-[#eaf4eb] px-4 py-3 text-sm font-medium text-[#27613d]" role="status" data-testid="status-inventory-success"><Check size={18} /> {notice}<button type="button" className="ml-auto text-xs uppercase tracking-wider underline" onClick={() => setNotice(null)} data-testid="button-dismiss-notice">Cerrar</button></div>}
@@ -143,7 +143,7 @@ function Home() {
                                   <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
                                 )}
                               </div>
-                              <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
+                              {canManage && <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>}
                             </div>
                           );
                         })}
@@ -156,10 +156,10 @@ function Home() {
 
             <section className="mt-10 pb-5">
               <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Unidades</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Lista para mover</h2></div><span className="font-data text-[10px] uppercase tracking-wider text-muted-foreground">{items.length} registros</span></div>
-              {items.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-inventory-list">No hay unidades disponibles.</div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><div className="hidden grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px] gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid"><span>Identificación / Pedido</span><span>Tipo</span><span>Metros</span><span>Estado</span><span /></div>{items.map((item) => {
+              {items.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-inventory-list">No hay unidades disponibles.</div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><div className={`hidden gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid ${canManage ? 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px]' : 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr]'}`}><span>Identificación / Pedido</span><span>Tipo</span><span>Metros</span><span>Estado</span>{canManage && <span />}</div>{items.map((item) => {
                 const itemPedidos = item.pedidosRelacionados ?? [];
                 return (
-                  <div key={item.id} className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px] md:items-center md:gap-4 md:px-5">
+                  <div key={item.id} className={`grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:items-center md:gap-4 md:px-5 ${canManage ? 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px]' : 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr]'}`}>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-foreground" data-testid={`text-inventory-item-${item.id}`}>{item.ancho} mm · {item.micras} µ</p>
@@ -182,7 +182,7 @@ function Home() {
                     <span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">{item.tipo}</span>
                     <p className="font-data text-lg font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p>
                     <span className="flex items-center gap-1.5 text-xs font-medium text-[#3c7d52]"><span className="h-1.5 w-1.5 rounded-full bg-[#4c9a71]" />{item.estado}</span>
-                    <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
+                    {canManage && <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>}
                   </div>
                 );
               })}</div>}
@@ -191,7 +191,7 @@ function Home() {
         )}
       </div>
 
-      <Modal open={modal === 'manufactured'} onClose={() => setModal(null)} onSubmit={handleManufactured} eyebrow="Entrada de almacén" title="Bobina fabricada" submitLabel={addManufactured.isPending ? 'Registrando…' : 'Registrar bobina'} submitDisabled={addManufactured.isPending || activeOrders.length === 0}>
+      {canManage && <><Modal open={modal === 'manufactured'} onClose={() => setModal(null)} onSubmit={handleManufactured} eyebrow="Entrada de almacén" title="Bobina fabricada" submitLabel={addManufactured.isPending ? 'Registrando…' : 'Registrar bobina'} submitDisabled={addManufactured.isPending || activeOrders.length === 0}>
         {addManufactured.isError && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-manufactured">No se pudo registrar la bobina. Revisa los datos.</p>}
         {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes activas</p><p className="mt-1 text-xs text-muted-foreground">Crea una orden en Producción antes de registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => {
           const pedidosText = order.pedidosRelacionados && order.pedidosRelacionados.length > 0 ? ` [${formatPedidosSummary(order.pedidosRelacionados)}]` : '';
@@ -207,6 +207,7 @@ function Home() {
       <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>
         {pendingConsume && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">{pendingConsume.ordenId ? `Orden ORD-${String(pendingConsume.ordenId).padStart(4, '0')}` : 'Resto de almacén'}</p>{pendingConsume.pedidosRelacionados && pendingConsume.pedidosRelacionados.length > 0 && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{formatPedidosSummary(pendingConsume.pedidosRelacionados)}</span>}</div><p className="mt-2 font-semibold">{characteristicsLabel(pendingConsume)}</p><p className="mt-3 font-data text-3xl font-semibold">{formatMeters(pendingConsume.metros)} <span className="text-sm font-normal text-muted-foreground">metros</span></p></div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" /> Esta acción marcará el material como <strong className="text-foreground">EN FÁBRICA</strong>. Comprueba la unidad antes de continuar.</p>{consume.isError && <p className="mt-4 text-sm text-destructive" role="alert" data-testid="error-consume">No se pudo mover la unidad. Inténtalo de nuevo.</p>}</div>}
       </Modal>
+      </>}
     </div>
   );
 }

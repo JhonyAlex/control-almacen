@@ -27,6 +27,7 @@ export const productionOrders = pgTable(
     }).notNull(),
     estado: text("estado").notNull().default("ACTIVA"),
     origen: text("origen").notNull().default("MANUAL"),
+    orden: integer("orden").notNull().default(0),
     creadoEn: timestamp("creado_en", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -43,6 +44,7 @@ export const productionOrders = pgTable(
       .where(
         sql`${table.estado} = 'ACTIVA' AND ${table.origen} = 'GESTION_PEDIDOS'`,
       ),
+    index("production_orders_orden_idx").on(table.orden),
   ],
 );
 

@@ -61,7 +61,8 @@ export const registerFirstUserBodyPasswordMin = 12;
 export const RegisterFirstUserBody = zod.object({
   "nombre": zod.string().min(1),
   "email": zod.string(),
-  "password": zod.string().min(registerFirstUserBodyPasswordMin)
+  "password": zod.string().min(registerFirstUserBodyPasswordMin),
+  "role": zod.enum(['ADMIN', 'USER']).optional()
 })
 
 export const RegisterFirstUserResponse = zod.object({
@@ -119,7 +120,7 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
 
 /**
- * @summary Create a normal user
+ * @summary Create a user
  */
 
 export const createUserBodyPasswordMin = 12;
@@ -129,7 +130,8 @@ export const createUserBodyPasswordMin = 12;
 export const CreateUserBody = zod.object({
   "nombre": zod.string().min(1),
   "email": zod.string(),
-  "password": zod.string().min(createUserBodyPasswordMin)
+  "password": zod.string().min(createUserBodyPasswordMin),
+  "role": zod.enum(['ADMIN', 'USER']).optional()
 })
 
 export const CreateUserResponse = zod.object({
@@ -140,6 +142,42 @@ export const CreateUserResponse = zod.object({
   "isActive": zod.boolean(),
   "creadoEn": zod.coerce.date()
 })
+
+
+/**
+ * @summary Edit a user and assign its role
+ */
+export const UpdateUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateUserBody = zod.object({
+  "nombre": zod.string().min(1),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER'])
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.number(),
+  "nombre": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['ADMIN', 'USER']),
+  "isActive": zod.boolean(),
+  "creadoEn": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a user
+ */
+export const DeleteUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteUserResponse = zod.void()
 
 
 /**
@@ -336,6 +374,19 @@ export const SetOrderBlockedResponse = zod.object({
   "creadoEn": zod.coerce.date(),
   "finalizadaEn": zod.coerce.date().nullable()
 })
+
+
+/**
+ * @summary Set the priority order of all active production orders
+ */
+
+
+
+export const ReorderOrdersBody = zod.object({
+  "orderIds": zod.array(zod.number()).min(1)
+})
+
+export const ReorderOrdersResponse = zod.void()
 
 
 /**

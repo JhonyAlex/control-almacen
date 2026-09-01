@@ -140,7 +140,7 @@ paths:
     post:
       operationId: createUser
       tags: [users]
-      summary: Create a normal user
+      summary: Create a user
       requestBody:
         required: true
         content:
@@ -156,6 +156,43 @@ paths:
                 $ref: "#/components/schemas/User"
         "409":
           description: Email already registered
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Edit a user and assign its role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: User deleted
   /users/{id}/status:
     patch:
       operationId: setUserStatus
@@ -308,6 +345,22 @@ paths:
           description: Finalized orders cannot be blocked or unlocked
         "404":
           description: Order not found
+  /orders/reorder:
+    patch:
+      operationId: reorderOrders
+      tags: [orders]
+      summary: Set the priority order of all active production orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderReorderInput"
+      responses:
+        "204":
+          description: Order priority updated
+        "409":
+          description: Active orders changed before the reorder was saved
   /orders/{id}/coils:
     get:
       operationId: listOrderCoils
@@ -463,8 +516,7 @@ components:
         email:
           type: string
         role:
-          type: string
-          enum: [ADMIN, USER]
+          $ref: "#/components/schemas/UserRole"
         isActive:
           type: boolean
         creadoEn:
@@ -482,6 +534,22 @@ components:
         password:
           type: string
           minLength: 12
+        role:
+          $ref: "#/components/schemas/UserRole"
+    UserRole:
+      type: string
+      enum: [ADMIN, USER]
+    UserUpdateInput:
+      type: object
+      required: [nombre, email, role]
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
     LoginInput:
       type: object
       required: [email, password]
@@ -573,6 +641,15 @@ components:
       properties:
         blocked:
           type: boolean
+    OrderReorderInput:
+      type: object
+      required: [orderIds]
+      properties:
+        orderIds:
+          type: array
+          minItems: 1
+          items:
+            type: number
     OrderOrigin:
       type: string
       enum: [MANUAL, GESTION_PEDIDOS]
