@@ -514,7 +514,7 @@ router.get("/inventory", async (_req, res, next) => {
   }
 });
 
-router.post("/inventory/coils", requireAdmin, async (req, res, next) => {
+router.post("/inventory/coils", async (req, res, next) => {
   try {
     const body = AddManufacturedCoilBody.parse(req.body);
     const { created, related } = await db.transaction(async (tx) => {
@@ -575,7 +575,7 @@ router.post("/inventory/coils", requireAdmin, async (req, res, next) => {
   }
 });
 
-router.post("/inventory/remnants", requireAdmin, async (req, res, next) => {
+router.post("/inventory/remnants", async (req, res, next) => {
   try {
     const body = AddProductionRemnantBody.parse(req.body);
     if (!CAMISAS.has(String(body.camisa)) || !MATERIALES.has(body.material)) {
