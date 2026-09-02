@@ -19,7 +19,10 @@ const updateUserSchema = z.object({
   role: z.enum([USER_ROLES.ADMIN, USER_ROLES.USER]),
 });
 
-router.use(requireAuth, requireAdmin);
+// This router is mounted at /api together with the warehouse routes. Scope the
+// administration guard to its own URL namespace so it cannot intercept reads
+// such as GET /api/orders or GET /api/inventory for authenticated USERs.
+router.use("/users", requireAuth, requireAdmin);
 
 router.get("/users", async (_req, res, next) => {
   try {
