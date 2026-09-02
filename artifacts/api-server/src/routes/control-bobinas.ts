@@ -600,7 +600,7 @@ router.post("/inventory/remnants", async (req, res, next) => {
   }
 });
 
-router.post("/inventory/:id/consume", requireAdmin, async (req, res, next) => {
+router.post("/inventory/:id/consume", async (req, res, next) => {
   try {
     const { id } = ConsumeInventoryItemParams.parse({
       id: Number(req.params.id),

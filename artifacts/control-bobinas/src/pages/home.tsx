@@ -83,7 +83,7 @@ function Home({ canManage }: { canManage: boolean }) {
           <div>
             <p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Módulo 01 / almacén</p>
             <h1 className="mt-2 font-display text-[clamp(2.7rem,6vw,4.7rem)] font-semibold uppercase leading-[.88] tracking-wide text-foreground">Estado de stock</h1>
-            <p className="mt-3 max-w-xl text-sm text-muted-foreground">Material disponible para expedición a fábrica.{canManage ? ' Registra entradas y mueve bobinas con una sola acción.' : ' Registra entradas de bobina fabricada y restos.'}</p>
+            <p className="mt-3 max-w-xl text-sm text-muted-foreground">Material disponible para expedición a fábrica.{canManage ? ' Registra entradas y mueve bobinas con una sola acción.' : ' Registra entradas y envía material a fábrica.'}</p>
           </div>
           <div className="flex gap-2.5">
             <button type="button" onClick={() => { setNotice(null); setModal('remnant'); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted sm:px-5" data-testid="button-add-remnant"><CirclePlus size={18} /> Añadir resto</button>
@@ -143,7 +143,7 @@ function Home({ canManage }: { canManage: boolean }) {
                                   <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
                                 )}
                               </div>
-                              {canManage && <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>}
+                              <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground" data-testid={`button-group-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
                             </div>
                           );
                         })}
@@ -182,7 +182,7 @@ function Home({ canManage }: { canManage: boolean }) {
                     <span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">{item.tipo}</span>
                     <p className="font-data text-lg font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p>
                     <span className="flex items-center gap-1.5 text-xs font-medium text-[#3c7d52]"><span className="h-1.5 w-1.5 rounded-full bg-[#4c9a71]" />{item.estado}</span>
-                    {canManage && <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>}
+                    <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
                   </div>
                 );
               })}</div>}
@@ -204,11 +204,9 @@ function Home({ canManage }: { canManage: boolean }) {
         <div className="grid gap-5 sm:grid-cols-2"><Field label="Ancho" hint="mm"><input name="ancho" type="number" min="1" required className={inputClass} placeholder="Ej. 1250" data-testid="input-remnant-width" /></Field><Field label="Micras"><input name="micras" type="number" min="1" required className={inputClass} placeholder="Ej. 23" data-testid="input-remnant-microns" /></Field><Field label="Camisa"><select name="camisa" required className={inputClass} defaultValue="" data-testid="select-remnant-sleeve"><option value="" disabled>Selecciona</option>{CAMISAS.map((camisa) => <option key={camisa} value={camisa}>{camisa}</option>)}</select></Field><Field label="Material"><select name="material" required className={inputClass} defaultValue="" data-testid="select-remnant-material"><option value="" disabled>Selecciona</option>{MATERIALES.map((material) => <option key={material} value={material}>{material}</option>)}</select></Field><div className="sm:col-span-2"><Field label="Metros del resto" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 840" data-testid="input-remnant-meters" /></Field></div></div>
       </Modal>
 
-      {canManage && (
-        <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>
+      <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>
           {pendingConsume && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">{pendingConsume.ordenId ? `Orden ORD-${String(pendingConsume.ordenId).padStart(4, '0')}` : 'Resto de almacén'}</p>{pendingConsume.pedidosRelacionados && pendingConsume.pedidosRelacionados.length > 0 && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{formatPedidosSummary(pendingConsume.pedidosRelacionados)}</span>}</div><p className="mt-2 font-semibold">{characteristicsLabel(pendingConsume)}</p><p className="mt-3 font-data text-3xl font-semibold">{formatMeters(pendingConsume.metros)} <span className="text-sm font-normal text-muted-foreground">metros</span></p></div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" /> Esta acción marcará el material como <strong className="text-foreground">EN FÁBRICA</strong>. Comprueba la unidad antes de continuar.</p>{consume.isError && <p className="mt-4 text-sm text-destructive" role="alert" data-testid="error-consume">No se pudo mover la unidad. Inténtalo de nuevo.</p>}</div>}
-        </Modal>
-      )}
+      </Modal>
     </div>
   );
 }
