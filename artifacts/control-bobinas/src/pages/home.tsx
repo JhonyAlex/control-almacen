@@ -27,7 +27,7 @@ function QueryError({ onRetry }: { onRetry: () => void }) {
 function Home({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
   const inventoryQuery = useListInventory();
-  const ordersQuery = useListOrders({ status: OrderStatus.ACTIVA });
+  const ordersQuery = useListOrders({ status: OrderStatus.BLOQUEADA });
   const addManufactured = useAddManufacturedCoil();
   const addRemnant = useAddProductionRemnant();
   const consume = useConsumeInventoryItem();
@@ -42,7 +42,7 @@ function Home({ canManage }: { canManage: boolean }) {
   const refreshInventory = () => inventoryQuery.refetch();
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.ACTIVA }) });
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) });
   };
 
   const handleManufactured = (event: FormEvent<HTMLFormElement>) => {
@@ -193,7 +193,7 @@ function Home({ canManage }: { canManage: boolean }) {
 
       <Modal open={modal === 'manufactured'} onClose={() => setModal(null)} onSubmit={handleManufactured} eyebrow="Entrada de almacén" title="Bobina fabricada" submitLabel={addManufactured.isPending ? 'Registrando…' : 'Registrar bobina'} submitDisabled={addManufactured.isPending || activeOrders.length === 0}>
         {addManufactured.isError && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-manufactured">No se pudo registrar la bobina. Revisa los datos.</p>}
-        {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes activas</p><p className="mt-1 text-xs text-muted-foreground">Crea una orden en Producción antes de registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => {
+        {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes bloqueadas</p><p className="mt-1 text-xs text-muted-foreground">No hay órdenes bloqueadas disponibles para registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => {
           const pedidosText = order.pedidosRelacionados && order.pedidosRelacionados.length > 0 ? ` [${formatPedidosSummary(order.pedidosRelacionados)}]` : '';
           return <option key={order.id} value={order.id}>#{order.id}{pedidosText} · {order.ancho} mm · {order.micras} µ · pendientes {formatMeters(order.metrosPendientes)} m</option>;
         })}</select></Field><Field label="Metros fabricados" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 1.250" data-testid="input-manufactured-meters" /></Field></div>}

@@ -523,7 +523,7 @@ router.post("/inventory/coils", async (req, res, next) => {
         .from(productionOrders)
         .where(eq(productionOrders.id, body.ordenId))
         .for("update");
-      if (!order || order.estado !== "ACTIVA")
+      if (!order || (order.estado !== "ACTIVA" && order.estado !== "BLOQUEADA"))
         throw new Error("ORDER_INACTIVE");
       const [inserted] = await tx
         .insert(coils)

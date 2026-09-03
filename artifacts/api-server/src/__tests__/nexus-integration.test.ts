@@ -394,7 +394,7 @@ function handleSetOrderBlocked(id: number, blocked: boolean) {
 
 function handleAddManufacturedCoil(ordenId: number, metros: number) {
   const order = testDb.orders.find((o) => o.id === ordenId);
-  if (!order || order.estado !== "ACTIVA") {
+  if (!order || (order.estado !== "ACTIVA" && order.estado !== "BLOQUEADA")) {
     return { status: 400 as const, body: { error: "La orden ya no está activa" } };
   }
   const coil: DbCoil = {
@@ -1306,4 +1306,33 @@ describe("Fase 2: Integración Nexus en control-almacen", () => {
     assert.equal(inv.items[0].ordenId, null);
     assert.deepEqual(inv.items[0].pedidosRelacionados, []);
   });
+
+  it("AA. Bobina fabricada permite registrarse sobre una orden BLOQUEADA", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "88888888-8888-4888-8888-888888888888",
+      pedidoId: "PED-BLOQ",
+      numeroPedidoCliente: "2600999",
+      metros: 4000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 20,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      // Bloquear la orden
+      const blockRes = handleSetOrderBlocked(orderId, true);
+      assert.equal(blockRes.status, 200);
+
+      // Fabricar bobina en la orden bloqueada
+      const resCoil = handleAddManufacturedCoil(orderId, 1500);
+      assert.equal(resCoil.status, 201);
+      if (resCoil.status === 201) {
+        assert.equal(resCoil.body.metros, 1500);
+        assert.equal(resCoil.body.ordenId, orderId);
+      }
+    }
+  });
 });
+
