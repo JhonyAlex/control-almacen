@@ -104,7 +104,7 @@ export const exportProductionOrdersPDF = (
   const totalCount = allOrders.length;
   let subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden' : 'órdenes'}`;
   if (activeOrders.length > 0 && blockedOrders.length > 0) {
-    subtitleDetail = `${totalCount} órdenes (${activeOrders.length} activas, ${blockedOrders.length} bloqueadas)`;
+    subtitleDetail = `${totalCount} órdenes: ${activeOrders.length} activas, ${blockedOrders.length} bloqueadas`;
   } else if (blockedOrders.length > 0) {
     subtitleDetail = `${blockedOrders.length} órdenes bloqueadas`;
   }
@@ -158,8 +158,8 @@ export const exportProductionOrdersPDF = (
     tableWidth,
     margin: { left: tableHorizontalMargin, right: tableHorizontalMargin, top: 20, bottom: 28 },
     styles: {
-      fontSize: 7,
-      cellPadding: { top: 3, right: 2.5, bottom: 3, left: 2.5 },
+      fontSize: 6.5,
+      cellPadding: { top: 3, right: 2, bottom: 3, left: 2 },
       valign: 'middle',
       textColor: [31, 41, 55],
       lineColor: [226, 232, 240],
@@ -171,26 +171,31 @@ export const exportProductionOrdersPDF = (
       fillColor: [45, 55, 72], // #2d3748
       textColor: 255,
       fontStyle: 'bold',
-      fontSize: 6.8,
+      fontSize: 6.2,
       halign: 'center',
       valign: 'middle',
-      cellPadding: { top: 3.5, right: 2, bottom: 3.5, left: 2 },
+      cellPadding: { top: 3.5, right: 1.5, bottom: 3.5, left: 1.5 },
     },
     columnStyles: {
-      0: { cellWidth: 48, fontStyle: 'bold' },              // Orden
-      1: { cellWidth: 38, fontSize: 6.5 },                  // Estado
-      2: { cellWidth: 34, fontSize: 6.5 },                  // Origen
-      3: { cellWidth: 38 },                                // Ancho
-      4: { cellWidth: 28 },                                // Micras
-      5: { cellWidth: 32 },                                // Camisa
-      6: { cellWidth: 40, fontSize: 6.5 },                  // Material
-      7: { cellWidth: 125, halign: 'left', fontSize: 6.5 }, // Pedidos agrupados (con ancho máx. y multilínea)
-      8: { cellWidth: 40, halign: 'right' },               // Metros Nec.
-      9: { cellWidth: 40, halign: 'right' },               // Metros Fab.
-      10: { cellWidth: 22 },                               // Hecho (checkbox)
-      11: { cellWidth: 40, fontSize: 6.3 },                // Creada
+      0: { cellWidth: 45, fontStyle: 'bold', fontSize: 6.5 }, // Orden (ORD-0013)
+      1: { cellWidth: 46, fontSize: 5.8 },                   // Estado (BLOQUEADA / ACTIVA)
+      2: { cellWidth: 32, fontSize: 6 },                     // Origen (Nexus / Manual)
+      3: { cellWidth: 36, fontSize: 6.5 },                   // Ancho (1090 mm)
+      4: { cellWidth: 25, fontSize: 6.5 },                   // Micras (25 µ)
+      5: { cellWidth: 32, fontSize: 6.2 },                   // Camisa (47-8-47)
+      6: { cellWidth: 46, fontSize: 6 },                     // Material (LDPE TTE / OPP TTE)
+      7: { cellWidth: 125, halign: 'left', fontSize: 6 },    // Pedidos agrupados
+      8: { cellWidth: 41, halign: 'right', fontSize: 6.5 },  // Metros Nec.
+      9: { cellWidth: 35, halign: 'right', fontSize: 6.5 },  // Metros Fab.
+      10: { cellWidth: 24 },                                 // Hecho (checkbox)
+      11: { cellWidth: 38, fontSize: 6 },                    // Creada (01/09/2026)
     },
     didParseCell: (data) => {
+      // Ajustar tamaño del encabezado de "Hecho" para asegurar que nunca se divida
+      if (data.section === 'head' && data.column.index === 10) {
+        data.cell.styles.fontSize = 5.5;
+      }
+
       if (data.section === 'body') {
         const order = allOrders[data.row.index];
 
@@ -205,8 +210,9 @@ export const exportProductionOrdersPDF = (
             data.cell.styles.fillColor = data.row.index % 2 === 1 ? [254, 243, 199] : [255, 251, 235]; // amber-100 / amber-50
           }
 
-          // Color de estado
+          // Color y tamaño exacto de estado
           if (data.column.index === 1) {
+            data.cell.styles.fontSize = 5.8;
             if (order.estado === 'ACTIVA') {
               data.cell.styles.textColor = [39, 97, 61]; // verde
               data.cell.styles.fontStyle = 'bold';
