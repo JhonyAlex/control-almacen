@@ -29,6 +29,13 @@
       "when": 1788277076846,
       "tag": "0003_user_management_and_order_priority",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788448000000,
+      "tag": "0004_manual_finalize_order_nota",
+      "breakpoints": true
     }
   ]
 }

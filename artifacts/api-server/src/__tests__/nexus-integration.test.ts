@@ -22,6 +22,7 @@ interface DbProductionOrder {
   origen: "MANUAL" | "GESTION_PEDIDOS";
   creadoEn: Date;
   finalizadaEn: Date | null;
+  nota?: string | null;
 }
 
 interface DbProductionOrderPedido {
@@ -316,6 +317,7 @@ function handleGetOrders(statusFilter?: string) {
       finalizadaEn: order.finalizadaEn
         ? order.finalizadaEn.toISOString()
         : null,
+      nota: order.nota ?? null,
     };
   });
 }
@@ -390,6 +392,69 @@ function handleSetOrderBlocked(id: number, blocked: boolean) {
 
   order.estado = blocked ? "BLOQUEADA" : "ACTIVA";
   return { status: 200, body: { id: order.id, estado: order.estado } };
+}
+
+function handleFinalizeOrder(id: number, nota?: string) {
+  const order = testDb.orders.find((o) => o.id === id);
+  if (!order) return { status: 404 as const, body: { error: "La orden no existe" } };
+  if (order.estado !== "BLOQUEADA") {
+    return {
+      status: 400 as const,
+      body: {
+        error: "Solo se pueden finalizar manualmente órdenes que estén bloqueadas",
+      },
+    };
+  }
+
+  const fabricados = testDb.calculateCoilsFabricados(order.id);
+  const faltantes = Math.max(0, Number(order.metrosNecesarios) - fabricados);
+  const faltantesFormatted = new Intl.NumberFormat("es-ES", {
+    maximumFractionDigits: 0,
+  }).format(faltantes);
+
+  let finalNota: string;
+  if (nota && nota.trim().length > 0) {
+    const trimmed = nota.trim();
+    finalNota = trimmed.toLowerCase().includes("faltan")
+      ? trimmed
+      : `${trimmed} (Faltan ${faltantesFormatted} m)`;
+  } else {
+    finalNota = `Finalizada manualmente con ${faltantesFormatted} m faltantes`;
+  }
+
+  order.estado = "FINALIZADA";
+  order.finalizadaEn = new Date();
+  order.nota = finalNota;
+
+  const related = testDb.orderPedidos
+    .filter((p) => p.ordenId === order.id)
+    .map((p) => ({
+      id: p.id,
+      pedidoId: p.pedidoId,
+      numeroPedidoCliente: p.numeroPedidoCliente,
+      metros: Number(p.metros),
+      vinculadoEn: p.vinculadoEn.toISOString(),
+    }));
+
+  return {
+    status: 200 as const,
+    body: {
+      id: order.id,
+      ancho: Number(order.ancho),
+      micras: Number(order.micras),
+      camisa: order.camisa,
+      material: order.material,
+      metrosNecesarios: Number(order.metrosNecesarios),
+      metrosFabricados: fabricados,
+      metrosPendientes: faltantes,
+      estado: order.estado,
+      origen: order.origen,
+      pedidosRelacionados: related,
+      creadoEn: order.creadoEn.toISOString(),
+      finalizadaEn: order.finalizadaEn.toISOString(),
+      nota: order.nota,
+    },
+  };
 }
 
 function handleAddManufacturedCoil(ordenId: number, metros: number) {
@@ -1331,6 +1396,174 @@ describe("Fase 2: Integración Nexus en control-almacen", () => {
       if (resCoil.status === 201) {
         assert.equal(resCoil.body.metros, 1500);
         assert.equal(resCoil.body.ordenId, orderId);
+      }
+    }
+  });
+
+  it("AB. Finalizar manual en orden BLOQUEADA cambia estado a FINALIZADA y guarda nota de metros faltantes", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "99999999-9999-4999-9999-999999999999",
+      pedidoId: "PED-FIN-1",
+      numeroPedidoCliente: "2601001",
+      metros: 5000,
+      bobinaMadre: 1000,
+      camisa: "520",
+      tipoMaterial: "OPP",
+      micras: 25,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      // Fabricar 2000m de 5000m
+      handleAddManufacturedCoil(orderId, 2000);
+
+      // Bloquear la orden
+      const blockRes = handleSetOrderBlocked(orderId, true);
+      assert.equal(blockRes.status, 200);
+
+      // Finalizar manualmente la orden bloqueada
+      const finRes = handleFinalizeOrder(orderId);
+      assert.equal(finRes.status, 200);
+      if (finRes.status === 200) {
+        assert.equal(finRes.body.estado, "FINALIZADA");
+        assert.equal(finRes.body.metrosFabricados, 2000);
+        assert.equal(finRes.body.metrosPendientes, 3000);
+        assert.ok(finRes.body.finalizadaEn);
+        assert.ok(finRes.body.nota);
+        assert.ok(finRes.body.nota.includes("3.000 m faltantes") || finRes.body.nota.includes("3000"));
+      }
+    }
+  });
+
+  it("AC. Finalizar manual en orden ACTIVA es rechazado con 400", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+      pedidoId: "PED-ACTIVA-FIN",
+      numeroPedidoCliente: "2601002",
+      metros: 3000,
+      bobinaMadre: 1000,
+      camisa: "520",
+      tipoMaterial: "OPP",
+      micras: 25,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const finRes = handleFinalizeOrder(resOrder.body.orderId);
+      assert.equal(finRes.status, 400);
+      assert.equal(finRes.body.error, "Solo se pueden finalizar manualmente órdenes que estén bloqueadas");
+    }
+  });
+
+  it("AD. Finalizar manual en orden ya FINALIZADA es rechazado con 400", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
+      pedidoId: "PED-ALREADY-FIN",
+      numeroPedidoCliente: "2601003",
+      metros: 2000,
+      bobinaMadre: 1000,
+      camisa: "520",
+      tipoMaterial: "OPP",
+      micras: 25,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      // Fabricar todos los metros para que se finalice automáticamente
+      handleAddManufacturedCoil(orderId, 2000);
+
+      const finRes = handleFinalizeOrder(orderId);
+      assert.equal(finRes.status, 400);
+    }
+  });
+
+  it("AE. Finalizar manual con nota personalizada preserva la nota y los metros faltantes", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "cccccccc-cccc-4ccc-cccc-cccccccccccc",
+      pedidoId: "PED-CUSTOM-NOTE",
+      numeroPedidoCliente: "2601004",
+      metros: 6000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 20,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      handleAddManufacturedCoil(orderId, 1500);
+      handleSetOrderBlocked(orderId, true);
+
+      const finRes = handleFinalizeOrder(orderId, "Parada técnica por avería de máquina");
+      assert.equal(finRes.status, 200);
+      if (finRes.status === 200) {
+        assert.equal(finRes.body.estado, "FINALIZADA");
+        assert.ok(finRes.body.nota?.includes("Parada técnica por avería de máquina"));
+        assert.ok(finRes.body.nota?.includes("4.500 m") || finRes.body.nota?.includes("4500"));
+      }
+    }
+  });
+
+  it("AF. Orden finalizada manualmente aparece en GET /orders?status=FINALIZADA y no en BLOQUEADA", async () => {
+    const resOrder = await handleNexusOrder({
+      eventId: "dddddddd-dddd-4ddd-dddd-dddddddddddd",
+      pedidoId: "PED-QUERY-FIN",
+      numeroPedidoCliente: "2601005",
+      metros: 4000,
+      bobinaMadre: 1000,
+      camisa: "520",
+      tipoMaterial: "OPP",
+      micras: 25,
+    });
+    assert.equal(resOrder.status, 201);
+    if (resOrder.status === 201) {
+      const orderId = resOrder.body.orderId;
+      handleSetOrderBlocked(orderId, true);
+      handleFinalizeOrder(orderId);
+
+      const blockedOrders = handleGetOrders("BLOQUEADA");
+      assert.ok(!blockedOrders.some((o) => o.id === orderId));
+
+      const finalizedOrders = handleGetOrders("FINALIZADA");
+      const found = finalizedOrders.find((o) => o.id === orderId);
+      assert.ok(found);
+      assert.equal(found?.estado, "FINALIZADA");
+      assert.ok(found?.nota);
+    }
+  });
+
+  it("AG. Nexus crea nueva orden ACTIVA cuando existe orden finalizada manualmente del mismo grupo", async () => {
+    const res1 = await handleNexusOrder({
+      eventId: "eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee",
+      pedidoId: "PED-GROUP-1",
+      numeroPedidoCliente: "2601006",
+      metros: 5000,
+      bobinaMadre: 1000,
+      camisa: "520",
+      tipoMaterial: "OPP",
+      micras: 25,
+    });
+    assert.equal(res1.status, 201);
+    if (res1.status === 201) {
+      const orderId1 = res1.body.orderId;
+      handleSetOrderBlocked(orderId1, true);
+      handleFinalizeOrder(orderId1);
+
+      // Ahora llega un pedido compatible con las mismas características
+      const res2 = await handleNexusOrder({
+        eventId: "ffffffff-ffff-4fff-ffff-ffffffffffff",
+        pedidoId: "PED-GROUP-2",
+        numeroPedidoCliente: "2601007",
+        metros: 3000,
+        bobinaMadre: 1000,
+        camisa: "520",
+        tipoMaterial: "OPP",
+        micras: 25,
+      });
+      assert.equal(res2.status, 201);
+      if (res2.status === 201) {
+        // Debe crear una NUEVA orden activa, NO reusar la orden finalizada
+        assert.notEqual(res2.body.orderId, orderId1);
+        assert.equal(res2.body.totalMetros, 3000);
       }
     }
   });

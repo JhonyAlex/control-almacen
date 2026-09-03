@@ -127,6 +127,10 @@ export interface OrderBlockInput {
   blocked: boolean;
 }
 
+export interface OrderFinalizeInput {
+  nota?: string;
+}
+
 export interface OrderReorderInput {
   /** @minItems 1 */
   orderIds: number[];
@@ -198,6 +202,8 @@ export interface ProductionOrder {
   creadoEn: string;
   /** @nullable */
   finalizadaEn: string | null;
+  /** @nullable */
+  nota: string | null;
 }
 
 export interface ManufacturedCoilInput {

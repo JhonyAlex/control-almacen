@@ -32,6 +32,7 @@ export const productionOrders = pgTable(
       .notNull()
       .defaultNow(),
     finalizadaEn: timestamp("finalizada_en", { withTimezone: true }),
+    nota: text("nota"),
   },
   (table) => [
     uniqueIndex("production_orders_gp_active_group_idx")

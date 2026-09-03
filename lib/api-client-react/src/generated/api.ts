@@ -31,6 +31,7 @@ import type {
   NexusOrderInput,
   NexusOrderResponse,
   OrderBlockInput,
+  OrderFinalizeInput,
   OrderInput,
   OrderReorderInput,
   PasswordInput,
@@ -1396,6 +1397,78 @@ export const useSetOrderBlocked = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSetOrderBlockedMutationOptions(options));
+    }
+
+export const getFinalizeOrderUrl = (id: number,) => {
+
+
+
+
+  return `/api/orders/${id}/finalize`
+}
+
+/**
+ * @summary Manually finalize a blocked production order
+ */
+export const finalizeOrder = async (id: number,
+    orderFinalizeInput?: OrderFinalizeInput, options?: Parameters<typeof customFetch>[1]): Promise<ProductionOrder> => {
+
+  return customFetch<ProductionOrder>(getFinalizeOrderUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderFinalizeInput)
+  }
+);}
+
+
+
+
+
+export const getFinalizeOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeOrder>>, TError,{id: number;data?: BodyType<OrderFinalizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof finalizeOrder>>, TError,{id: number;data?: BodyType<OrderFinalizeInput>}, TContext> => {
+
+const mutationKey = ['finalizeOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeOrder>>, {id: number;data?: BodyType<OrderFinalizeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  finalizeOrder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FinalizeOrderMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeOrder>>>
+    export type FinalizeOrderMutationBody = BodyType<OrderFinalizeInput> | undefined
+    export type FinalizeOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually finalize a blocked production order
+ */
+export const useFinalizeOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeOrder>>, TError,{id: number;data?: BodyType<OrderFinalizeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof finalizeOrder>>,
+        TError,
+        {id: number;data?: BodyType<OrderFinalizeInput>},
+        TContext
+      > => {
+      return useMutation(getFinalizeOrderMutationOptions(options));
     }
 
 export const getReorderOrdersUrl = () => {

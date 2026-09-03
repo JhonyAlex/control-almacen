@@ -1,11 +1,12 @@
 import { type FormEvent, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, ClipboardPlus, Factory, FileDown, Layers, Lock, Package, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, ClipboardPlus, Factory, FileDown, Layers, Lock, Package, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
 import {
   getListOrdersQueryKey,
   OrderStatus,
   useCreateOrder,
   useDeleteOrder,
+  useFinalizeOrder,
   useListOrders,
   useReorderOrders,
   useSetOrderBlocked,
@@ -27,11 +28,14 @@ function Production({ canManage }: { canManage: boolean }) {
   const createOrder = useCreateOrder();
   const deleteOrder = useDeleteOrder();
   const setOrderBlocked = useSetOrderBlocked();
+  const finalizeOrder = useFinalizeOrder();
   const reorderOrders = useReorderOrders();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ProductionOrder | null>(null);
   const [editTarget, setEditTarget] = useState<ProductionOrder | null>(null);
   const [blockTarget, setBlockTarget] = useState<ProductionOrder | null>(null);
+  const [finalizeTarget, setFinalizeTarget] = useState<ProductionOrder | null>(null);
+  const [finalizeNote, setFinalizeNote] = useState<string>('');
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const updateOrder = useUpdateOrder();
@@ -41,6 +45,7 @@ function Production({ canManage }: { canManage: boolean }) {
   const invalidateOrderQueries = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.ACTIVA }) }),
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) }),
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.FINALIZADA }) }),
   ]);
   const onCreate = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -104,6 +109,25 @@ function Production({ canManage }: { canManage: boolean }) {
     });
   };
 
+  const onFinalize = () => {
+    if (!finalizeTarget) return;
+    setActionError(null);
+    finalizeOrder.mutate({
+      id: finalizeTarget.id,
+      data: { nota: finalizeNote.trim() },
+    }, {
+      onSuccess: () => {
+        void invalidateOrderQueries();
+        const targetId = finalizeTarget.id;
+        const targetMeters = formatMeters(finalizeTarget.metrosPendientes);
+        setFinalizeTarget(null);
+        setFinalizeNote('');
+        setNotice(`Orden ORD-${String(targetId).padStart(4, '0')} finalizada manualmente (${targetMeters} m faltantes). Movida al historial.`);
+      },
+      onError: () => setActionError('No se pudo finalizar la orden. Inténtalo de nuevo.'),
+    });
+  };
+
   const moveOrder = (index: number, direction: -1 | 1) => {
     const destination = index + direction;
     if (destination < 0 || destination >= orders.length) return;
@@ -139,7 +163,7 @@ function Production({ canManage }: { canManage: boolean }) {
         {ordersQuery.isLoading && <OrderSkeleton />}
         {ordersQuery.isError && !ordersQuery.isLoading && <div className="flex flex-col items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6" role="alert" data-testid="error-orders"><div className="flex items-center gap-3 text-destructive"><TriangleAlert size={21} /><p className="font-semibold">No se pudieron cargar las órdenes</p></div><button type="button" onClick={() => ordersQuery.refetch()} className="pressable flex min-h-11 items-center gap-2 rounded-lg bg-destructive px-4 text-sm font-semibold text-destructive-foreground" data-testid="button-retry-orders"><RefreshCw size={16} /> Reintentar</button></div>}
         {!ordersQuery.isLoading && !ordersQuery.isError && (orders.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center" data-testid="empty-active-orders"><Factory className="mx-auto text-muted-foreground" size={32} /><h2 className="mt-3 font-display text-3xl uppercase">Sin órdenes activas</h2><p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">Cuando entre una nueva necesidad de fabricación, aparecerá aquí.</p>{canManage && <button type="button" onClick={() => setCreateOpen(true)} className="pressable mt-6 min-h-12 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground" data-testid="button-create-first-order">Crear primera orden</button>}</div> : <div className="space-y-3" data-testid="list-active-orders">{orders.map((order, index) => <OrderCard key={order.id} order={order} index={index} canManage={canManage} onDelete={() => setDeleteTarget(order)} onEdit={() => setEditTarget(order)} onBlock={() => { setActionError(null); setBlockTarget(order); }} onMoveUp={() => moveOrder(index, -1)} onMoveDown={() => moveOrder(index, 1)} canMoveUp={index > 0} canMoveDown={index < orders.length - 1} actionPending={setOrderBlocked.isPending || reorderOrders.isPending} />)}</div>)}
-        {!blockedOrdersQuery.isLoading && !blockedOrdersQuery.isError && blockedOrders.length > 0 && <section className="mt-10 border-t border-border pt-8" aria-labelledby="blocked-orders-title"><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-accent-foreground">Producción detenida</p><h2 id="blocked-orders-title" className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Órdenes bloqueadas</h2><p className="mt-1 text-sm text-muted-foreground">No se pueden usar para registrar fabricación hasta que se desbloqueen.</p></div><span className="rounded-md bg-secondary px-2.5 py-1 font-data text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{blockedOrders.length} bloqueadas</span></div><div className="space-y-3" data-testid="list-blocked-orders">{blockedOrders.map((order, index) => <OrderCard key={order.id} order={order} index={index} blocked canManage={canManage} onUnblock={() => onUnblock(order)} actionPending={setOrderBlocked.isPending} />)}</div></section>}
+        {!blockedOrdersQuery.isLoading && !blockedOrdersQuery.isError && blockedOrders.length > 0 && <section className="mt-10 border-t border-border pt-8" aria-labelledby="blocked-orders-title"><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-accent-foreground">Producción detenida</p><h2 id="blocked-orders-title" className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Órdenes bloqueadas</h2><p className="mt-1 text-sm text-muted-foreground">No se pueden usar para registrar fabricación hasta que se desbloqueen.</p></div><span className="rounded-md bg-secondary px-2.5 py-1 font-data text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">{blockedOrders.length} bloqueadas</span></div><div className="space-y-3" data-testid="list-blocked-orders">{blockedOrders.map((order, index) => <OrderCard key={order.id} order={order} index={index} blocked canManage={canManage} onUnblock={() => onUnblock(order)} onFinalize={() => { setActionError(null); setFinalizeTarget(order); setFinalizeNote(`Finalizada manualmente con ${formatMeters(order.metrosPendientes)} m faltantes`); }} actionPending={setOrderBlocked.isPending || finalizeOrder.isPending} />)}</div></section>}
         {blockedOrdersQuery.isError && <p className="mt-8 text-sm text-destructive" role="alert">No se pudieron cargar las órdenes bloqueadas.</p>}
       </div>
 
@@ -156,11 +180,15 @@ function Production({ canManage }: { canManage: boolean }) {
       <Modal open={!!blockTarget} onClose={() => { setBlockTarget(null); setActionError(null); }} onSubmit={(event) => { event.preventDefault(); onBlock(); }} eyebrow="Detener producción" title="Bloquear orden" submitLabel={setOrderBlocked.isPending ? 'Bloqueando…' : 'Bloquear orden'} submitDisabled={setOrderBlocked.isPending}>
         {blockTarget && <div><div className="rounded-lg border border-accent/50 bg-secondary/60 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden ORD-{String(blockTarget.id).padStart(4, '0')}</p><p className="mt-2 font-semibold">{blockTarget.ancho} mm · {blockTarget.micras} µ · {blockTarget.material}</p><p className="mt-1 text-sm text-muted-foreground">{formatMeters(blockTarget.metrosPendientes)} m pendientes de fabricar</p>{blockTarget.pedidosRelacionados && blockTarget.pedidosRelacionados.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{formatPedidosSummary(blockTarget.pedidosRelacionados)}</p>}</div><p className="mt-5 flex gap-2 text-sm leading-relaxed text-muted-foreground"><Lock size={18} className="mt-0.5 shrink-0 text-accent-foreground" /> No se podrán registrar más bobinas ni editar esta orden. Crea una nueva para continuar; podrás desbloquearla más adelante si lo necesitas.</p>{actionError && <p className="mt-4 text-sm text-destructive" role="alert">{actionError}</p>}</div>}
       </Modal>
+
+      <Modal open={!!finalizeTarget} onClose={() => { setFinalizeTarget(null); setActionError(null); }} onSubmit={(event) => { event.preventDefault(); onFinalize(); }} eyebrow="Finalización manual" title="Finalizar orden bloqueada" submitLabel={finalizeOrder.isPending ? 'Finalizando…' : 'Finalizar orden'} submitDisabled={finalizeOrder.isPending}>
+        {finalizeTarget && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden ORD-{String(finalizeTarget.id).padStart(4, '0')}</p><p className="mt-2 font-semibold">{finalizeTarget.ancho} mm · {finalizeTarget.micras} µ · {finalizeTarget.material} · Camisa {finalizeTarget.camisa}</p><div className="mt-2 flex flex-wrap gap-x-4 text-xs text-muted-foreground"><span>Fabricados: <strong className="text-foreground">{formatMeters(finalizeTarget.metrosFabricados)} m</strong></span><span>Necesarios: {formatMeters(finalizeTarget.metrosNecesarios)} m</span></div><div className="mt-3 rounded-md border border-accent/50 bg-secondary/60 p-2.5"><p className="text-xs font-medium text-accent-foreground">Metros faltantes: <strong className="font-data text-sm">{formatMeters(finalizeTarget.metrosPendientes)} m</strong></p></div>{finalizeTarget.pedidosRelacionados && finalizeTarget.pedidosRelacionados.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{formatPedidosSummary(finalizeTarget.pedidosRelacionados)}</p>}</div><p className="mt-4 text-sm leading-relaxed text-muted-foreground">La orden pasará al flujo de órdenes finalizadas (historial de trazabilidad) dejando constancia de los metros no completados.</p><div className="mt-4"><Field label="Nota de finalización" hint="constancia de metros faltantes"><input name="nota" type="text" required className={inputClass} value={finalizeNote} onChange={(e) => setFinalizeNote(e.target.value)} placeholder="Nota de los metros faltantes..." data-testid="input-finalize-order-note" /></Field></div>{actionError && <p className="mt-4 text-sm text-destructive" role="alert" data-testid="error-finalize-order-action">{actionError}</p>}</div>}
+      </Modal>
     </div>
   );
 }
 
-function OrderCard({ order, index, onDelete, onEdit, onBlock, onUnblock, onMoveUp, onMoveDown, canMoveUp = false, canMoveDown = false, canManage = false, blocked = false, actionPending = false }: { order: ProductionOrder; index: number; onDelete?: () => void; onEdit?: () => void; onBlock?: () => void; onUnblock?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; canMoveUp?: boolean; canMoveDown?: boolean; canManage?: boolean; blocked?: boolean; actionPending?: boolean }) {
+function OrderCard({ order, index, onDelete, onEdit, onBlock, onUnblock, onFinalize, onMoveUp, onMoveDown, canMoveUp = false, canMoveDown = false, canManage = false, blocked = false, actionPending = false }: { order: ProductionOrder; index: number; onDelete?: () => void; onEdit?: () => void; onBlock?: () => void; onUnblock?: () => void; onFinalize?: () => void; onMoveUp?: () => void; onMoveDown?: () => void; canMoveUp?: boolean; canMoveDown?: boolean; canManage?: boolean; blocked?: boolean; actionPending?: boolean }) {
   const progress = order.metrosNecesarios > 0 ? Math.min(100, (order.metrosFabricados / order.metrosNecesarios) * 100) : 0;
   const statusClass = blocked ? 'text-[#906000]' : 'text-[#3c7d52]';
   const statusDotClass = blocked ? 'bg-accent' : 'bg-[#4c9a71]';
@@ -204,7 +232,10 @@ function OrderCard({ order, index, onDelete, onEdit, onBlock, onUnblock, onMoveU
       </div>
       <div className="grid grid-cols-3 gap-3 border-y border-border py-4 xl:min-w-0 xl:border-y-0 xl:border-l xl:py-0 xl:pl-7"><div><p className="text-[11px] text-muted-foreground">Necesarios</p><p className="mt-1 font-data text-xl font-semibold">{formatMeters(order.metrosNecesarios)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div><div><p className="text-[11px] text-muted-foreground">Fabricados</p><p className="mt-1 font-data text-xl font-semibold text-primary">{formatMeters(order.metrosFabricados)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div><div><p className="text-[11px] text-muted-foreground">Pendientes</p><p className="mt-1 font-data text-xl font-semibold text-accent-foreground">{formatMeters(order.metrosPendientes)} <span className="text-xs font-normal text-muted-foreground">m</span></p></div></div>
       <div className="xl:w-auto"><div className="flex justify-between text-[11px] text-muted-foreground"><span>Avance</span><span className="font-data font-semibold text-foreground">{Math.round(progress)}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} /></div><p className="mt-2 text-[11px] text-muted-foreground">Creada {formatDate(order.creadoEn)}</p>{blocked && <p className="mt-3 text-[11px] font-medium text-[#906000]">Producción detenida</p>}</div>
-      {canManage && <div className="flex flex-wrap gap-2 xl:flex-col xl:items-stretch">{!blocked && <div className="flex gap-2"><button type="button" onClick={onMoveUp} disabled={actionPending || !canMoveUp} className="pressable flex min-h-10 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40" aria-label="Subir prioridad" data-testid={`button-move-order-up-${order.id}`}><ChevronUp size={16} /> Subir</button><button type="button" onClick={onMoveDown} disabled={actionPending || !canMoveDown} className="pressable flex min-h-10 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40" aria-label="Bajar prioridad" data-testid={`button-move-order-down-${order.id}`}><ChevronDown size={16} /> Bajar</button></div>}{blocked ? <button type="button" onClick={onUnblock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-unblock-order-${order.id}`}><Unlock size={16} /> Desbloquear</button> : <button type="button" onClick={onBlock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent/60 bg-secondary/70 px-3 text-xs font-semibold text-accent-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-block-order-${order.id}`}><Lock size={16} /> Bloquear</button>}{!blocked && <><button type="button" onClick={onEdit} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-edit-order-${order.id}`}>Editar</button><button type="button" onClick={onDelete} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-destructive/25 px-3 text-xs font-semibold text-destructive hover:bg-destructive/5" data-testid={`button-delete-order-${order.id}`}><Trash2 size={16} /> Eliminar</button></>}</div>}
+      {canManage && <div className="flex flex-wrap gap-2 xl:flex-col xl:items-stretch">{!blocked && <div className="flex gap-2"><button type="button" onClick={onMoveUp} disabled={actionPending || !canMoveUp} className="pressable flex min-h-10 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40" aria-label="Subir prioridad" data-testid={`button-move-order-up-${order.id}`}><ChevronUp size={16} /> Subir</button><button type="button" onClick={onMoveDown} disabled={actionPending || !canMoveDown} className="pressable flex min-h-10 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 text-xs font-semibold text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40" aria-label="Bajar prioridad" data-testid={`button-move-order-down-${order.id}`}><ChevronDown size={16} /> Bajar</button></div>}{blocked ? <>
+        <button type="button" onClick={onUnblock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-unblock-order-${order.id}`}><Unlock size={16} /> Desbloquear</button>
+        <button type="button" onClick={onFinalize} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 text-xs font-semibold text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-finalize-order-${order.id}`} title="Finalizar orden manualmente"><CheckCircle2 size={16} /> Finalizar manual</button>
+      </> : <button type="button" onClick={onBlock} disabled={actionPending} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent/60 bg-secondary/70 px-3 text-xs font-semibold text-accent-foreground hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50" data-testid={`button-block-order-${order.id}`}><Lock size={16} /> Bloquear</button>}{!blocked && <><button type="button" onClick={onEdit} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-edit-order-${order.id}`}>Editar</button><button type="button" onClick={onDelete} className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-destructive/25 px-3 text-xs font-semibold text-destructive hover:bg-destructive/5" data-testid={`button-delete-order-${order.id}`}><Trash2 size={16} /> Eliminar</button></>}</div>}
     </div>
   </article>;
 }

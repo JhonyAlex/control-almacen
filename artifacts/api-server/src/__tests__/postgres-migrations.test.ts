@@ -72,6 +72,15 @@ describe("Validación de Migraciones contra PostgreSQL Real", () => {
     assert.equal(columnsRes.rows[0].column_name, "origen");
     assert.ok(columnsRes.rows[0].column_default.includes("MANUAL"));
 
+    // Verify column nota in production_orders
+    const notaColRes = await pool.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'production_orders' AND column_name = 'nota'
+    `);
+    assert.equal(notaColRes.rows.length, 1);
+    assert.equal(notaColRes.rows[0].column_name, "nota");
+
     // Verify partial unique index exists
     const indexesRes = await pool.query(`
       SELECT indexname, indexdef

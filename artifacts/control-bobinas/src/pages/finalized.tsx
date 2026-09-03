@@ -45,10 +45,21 @@ function FinalizedRow({ order }: { order: ProductionOrder }) {
             <span>Creada: {formatDate(order.creadoEn)}</span>
             <span>Finalizada: {order.finalizadaEn ? formatDate(order.finalizadaEn) : '—'}</span>
           </div>
+          {order.nota && (
+            <div className="mt-2.5 rounded-lg border border-accent/40 bg-secondary/60 px-3 py-2 text-xs" data-testid={`text-finalized-order-note-${order.id}`}>
+              <span className="font-semibold text-foreground">Nota: </span>
+              <span className="text-muted-foreground">{order.nota}</span>
+            </div>
+          )}
         </div>
         <div className="hidden text-right sm:block">
           <p className="font-data font-semibold">{formatMeters(order.metrosFabricados)} m</p>
           <p className="text-xs text-muted-foreground">de {formatMeters(order.metrosNecesarios)} m</p>
+          {order.metrosPendientes > 0 && (
+            <p className="mt-1 text-xs font-semibold text-accent-foreground" data-testid={`text-finalized-missing-meters-${order.id}`}>
+              {formatMeters(order.metrosPendientes)} m faltantes
+            </p>
+          )}
         </div>
         <ChevronDown size={22} className={`shrink-0 text-muted-foreground transition ${open ? 'rotate-180' : ''}`} />
       </button>

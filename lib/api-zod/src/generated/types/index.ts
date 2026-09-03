@@ -23,6 +23,7 @@ export * from './nexusOrderInput';
 export * from './nexusOrderResponse';
 export * from './nexusOrderResponseAction';
 export * from './orderBlockInput';
+export * from './orderFinalizeInput';
 export * from './orderInput';
 export * from './orderOrigin';
 export * from './orderReorderInput';

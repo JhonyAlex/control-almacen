@@ -24,4 +24,6 @@ export interface ProductionOrder {
   creadoEn: Date;
   /** @nullable */
   finalizadaEn: Date | null;
+  /** @nullable */
+  nota: string | null;
 }

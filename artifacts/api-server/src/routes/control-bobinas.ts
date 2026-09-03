@@ -10,6 +10,8 @@ import {
   UpdateOrderBody,
   UpdateOrderParams,
   DeleteOrderParams,
+  FinalizeOrderBody,
+  FinalizeOrderParams,
   ListOrderCoilsParams,
   ListOrdersQueryParams,
   ReorderOrdersBody,
@@ -128,6 +130,7 @@ const orderView = (
   pedidosRelacionados,
   creadoEn: order.creadoEn.toISOString(),
   finalizadaEn: order.finalizadaEn?.toISOString() ?? null,
+  nota: order.nota ?? null,
 });
 
 async function ordersWithTotals(status?: string) {
@@ -466,6 +469,95 @@ router.patch("/orders/:id/blocked", requireAdmin, async (req, res, next) => {
       });
       return;
     }
+    next(error);
+  }
+});
+
+router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = FinalizeOrderParams.parse({ id: Number(req.params.id) });
+    const body = req.body ? FinalizeOrderBody.parse(req.body) : {};
+
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(productionOrders)
+        .where(eq(productionOrders.id, id))
+        .for("update");
+
+      if (!current) return { kind: "MISSING" as const };
+
+      if (current.estado !== "BLOQUEADA") {
+        return { kind: "NOT_BLOCKED" as const };
+      }
+
+      const [{ total }] = await tx
+        .select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` })
+        .from(coils)
+        .where(eq(coils.ordenId, id));
+
+      const fabricados = numeric(total);
+      const necesarios = numeric(current.metrosNecesarios);
+      const faltantes = Math.max(0, necesarios - fabricados);
+      const faltantesStr = new Intl.NumberFormat("es-ES", {
+        maximumFractionDigits: 0,
+      }).format(faltantes);
+
+      let notaFinal: string;
+      if (body.nota && body.nota.trim().length > 0) {
+        const trimmed = body.nota.trim();
+        notaFinal = trimmed.toLowerCase().includes("faltan")
+          ? trimmed
+          : `${trimmed} (Faltan ${faltantesStr} m)`;
+      } else {
+        notaFinal = `Finalizada manualmente con ${faltantesStr} m faltantes`;
+      }
+
+      const [updated] = await tx
+        .update(productionOrders)
+        .set({
+          estado: "FINALIZADA",
+          finalizadaEn: new Date(),
+          nota: notaFinal,
+        })
+        .where(eq(productionOrders.id, id))
+        .returning();
+
+      const related = await tx
+        .select()
+        .from(productionOrderPedidos)
+        .where(eq(productionOrderPedidos.ordenId, id))
+        .orderBy(asc(productionOrderPedidos.vinculadoEn));
+
+      return {
+        kind: "UPDATED" as const,
+        order: updated,
+        total: fabricados,
+        pedidos: related.map((r) => ({
+          id: r.id,
+          pedidoId: r.pedidoId,
+          numeroPedidoCliente: r.numeroPedidoCliente,
+          metros: numeric(r.metros),
+          vinculadoEn: r.vinculadoEn.toISOString(),
+        })),
+      };
+    });
+
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+
+    if (result.kind === "NOT_BLOCKED") {
+      res.status(400).json({
+        error:
+          "Solo se pueden finalizar manualmente órdenes que estén bloqueadas",
+      });
+      return;
+    }
+
+    res.json(orderView(result.order, result.total, result.pedidos));
+  } catch (error) {
     next(error);
   }
 });

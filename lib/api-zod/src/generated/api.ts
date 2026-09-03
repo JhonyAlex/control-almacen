@@ -245,7 +245,8 @@ export const ListOrdersResponseItem = zod.object({
   "vinculadoEn": zod.coerce.date()
 })),
   "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
 })
 export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
@@ -285,7 +286,8 @@ export const CreateOrderResponse = zod.object({
   "vinculadoEn": zod.coerce.date()
 })),
   "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
 })
 
 
@@ -328,7 +330,8 @@ export const UpdateOrderResponse = zod.object({
   "vinculadoEn": zod.coerce.date()
 })),
   "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
 })
 
 
@@ -372,7 +375,43 @@ export const SetOrderBlockedResponse = zod.object({
   "vinculadoEn": zod.coerce.date()
 })),
   "creadoEn": zod.coerce.date(),
-  "finalizadaEn": zod.coerce.date().nullable()
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
+})
+
+
+/**
+ * @summary Manually finalize a blocked production order
+ */
+export const FinalizeOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const FinalizeOrderBody = zod.object({
+  "nota": zod.string().optional()
+})
+
+export const FinalizeOrderResponse = zod.object({
+  "id": zod.number(),
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
 })
 
 

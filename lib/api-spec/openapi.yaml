@@ -345,6 +345,34 @@ paths:
           description: Finalized orders cannot be blocked or unlocked
         "404":
           description: Order not found
+  /orders/{id}/finalize:
+    post:
+      operationId: finalizeOrder
+      tags: [orders]
+      summary: Manually finalize a blocked production order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderFinalizeInput"
+      responses:
+        "200":
+          description: Finalized order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionOrder"
+        "400":
+          description: Only blocked orders can be manually finalized
+        "404":
+          description: Order not found
   /orders/reorder:
     patch:
       operationId: reorderOrders
@@ -641,6 +669,11 @@ components:
       properties:
         blocked:
           type: boolean
+    OrderFinalizeInput:
+      type: object
+      properties:
+        nota:
+          type: string
     OrderReorderInput:
       type: object
       required: [orderIds]
@@ -736,6 +769,7 @@ components:
         - pedidosRelacionados
         - creadoEn
         - finalizadaEn
+        - nota
       properties:
         id:
           type: number
@@ -767,6 +801,8 @@ components:
         finalizadaEn:
           type: ["string", "null"]
           format: date-time
+        nota:
+          type: ["string", "null"]
     ManufacturedCoilInput:
       type: object
       required: [ordenId, metros]
