@@ -73,7 +73,7 @@ export const exportProductionOrdersPDF = (
   activeOrders: ProductionOrder[],
   blockedOrders: ProductionOrder[] = []
 ) => {
-  const allOrders = [...(activeOrders ?? []), ...(blockedOrders ?? [])];
+  const allOrders = [...(blockedOrders ?? []), ...(activeOrders ?? [])];
   if (allOrders.length === 0) {
     return;
   }
@@ -98,13 +98,13 @@ export const exportProductionOrdersPDF = (
   doc.setTextColor(100, 100, 100);
   doc.text('Órdenes de producción', tableHorizontalMargin, 42);
 
-  // Sub-subtítulo informativo detallando el conteo de activas y bloqueadas
+  // Sub-subtítulo informativo detallando el conteo de bloqueadas y activas
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   const totalCount = allOrders.length;
   let subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden' : 'órdenes'}`;
-  if (activeOrders.length > 0 && blockedOrders.length > 0) {
-    subtitleDetail = `${totalCount} órdenes: ${activeOrders.length} activas, ${blockedOrders.length} bloqueadas`;
+  if (blockedOrders.length > 0 && activeOrders.length > 0) {
+    subtitleDetail = `${totalCount} órdenes: ${blockedOrders.length} bloqueadas, ${activeOrders.length} activas`;
   } else if (blockedOrders.length > 0) {
     subtitleDetail = `${blockedOrders.length} órdenes bloqueadas`;
   }
