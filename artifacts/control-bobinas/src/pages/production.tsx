@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, ClipboardPlus, Factory, Layers, Lock, Package, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
+import { ChevronDown, ChevronUp, ClipboardPlus, Factory, FileDown, Layers, Lock, Package, RefreshCw, Trash2, TriangleAlert, Unlock } from 'lucide-react';
 import {
   getListOrdersQueryKey,
   OrderStatus,
@@ -14,6 +14,7 @@ import {
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
 import { CAMISAS, formatDate, formatMeters, formatPedidosSummary, MATERIALES, parseCamisa } from '@/lib/domain';
+import { exportProductionOrdersPDF } from '@/utils/productionOrdersPdf';
 
 function OrderSkeleton() {
   return <div className="space-y-3" aria-label="Cargando órdenes" data-testid="loading-orders"><div className="h-44 animate-pulse rounded-xl bg-muted" /><div className="h-44 animate-pulse rounded-xl bg-muted" /></div>;
@@ -119,7 +120,19 @@ function Production({ canManage }: { canManage: boolean }) {
       <div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
         <div className="load-in mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Módulo 02 / producción</p><h1 className="mt-2 font-display text-[clamp(2.7rem,6vw,4.7rem)] font-semibold uppercase leading-[.88] tracking-wide">Órdenes activas</h1><p className="mt-3 max-w-xl text-sm text-muted-foreground">Controla lo que está en fabricación. Cada metro registrado actualiza el pendiente de la orden.</p></div>
-          {canManage && <button type="button" onClick={() => { setNotice(null); setEditTarget(null); setCreateOpen(true); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:brightness-110" data-testid="button-create-order"><ClipboardPlus size={18} /> Nueva orden</button>}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => exportProductionOrdersPDF(orders)}
+              disabled={orders.length === 0}
+              className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
+              title="Exportar órdenes activas a PDF"
+              data-testid="button-export-pdf"
+            >
+              <FileDown size={18} /> Exportar PDF
+            </button>
+            {canManage && <button type="button" onClick={() => { setNotice(null); setEditTarget(null); setCreateOpen(true); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:brightness-110" data-testid="button-create-order"><ClipboardPlus size={18} /> Nueva orden</button>}
+          </div>
         </div>
         {notice && <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#a9c9b1] bg-[#eaf4eb] px-4 py-3 text-sm font-medium text-[#27613d]" role="status" data-testid="status-production-success"><span className="h-2 w-2 rounded-full bg-[#4c9a71]" />{notice}<button type="button" className="ml-auto text-xs uppercase tracking-wider underline" onClick={() => setNotice(null)} data-testid="button-dismiss-production-notice">Cerrar</button></div>}
         {actionError && <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive" role="alert" data-testid="error-order-block-action">{actionError}<button type="button" className="ml-auto text-xs uppercase tracking-wider underline" onClick={() => setActionError(null)}>Cerrar</button></div>}
