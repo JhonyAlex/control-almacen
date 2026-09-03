@@ -66,11 +66,15 @@ const buildPdfFooter = (
 };
 
 /**
- * Genera el documento PDF con el listado de órdenes activas de producción
+ * Genera el documento PDF con el listado de órdenes activas y bloqueadas de producción
  * y lo abre de inmediato en una nueva pestaña del navegador para impresión/visualización.
  */
-export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
-  if (!orders || orders.length === 0) {
+export const exportProductionOrdersPDF = (
+  activeOrders: ProductionOrder[],
+  blockedOrders: ProductionOrder[] = []
+) => {
+  const allOrders = [...(activeOrders ?? []), ...(blockedOrders ?? [])];
+  if (allOrders.length === 0) {
     return;
   }
 
@@ -92,12 +96,19 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
-  doc.text('Órdenes activas en producción', tableHorizontalMargin, 42);
+  doc.text('Órdenes de producción', tableHorizontalMargin, 42);
 
-  // Sub-subtítulo informativo
+  // Sub-subtítulo informativo detallando el conteo de activas y bloqueadas
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Módulo 02 · Control de Fabricación (${orders.length} ${orders.length === 1 ? 'orden' : 'órdenes'})`, tableHorizontalMargin, 54);
+  const totalCount = allOrders.length;
+  let subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden' : 'órdenes'}`;
+  if (activeOrders.length > 0 && blockedOrders.length > 0) {
+    subtitleDetail = `${totalCount} órdenes (${activeOrders.length} activas, ${blockedOrders.length} bloqueadas)`;
+  } else if (blockedOrders.length > 0) {
+    subtitleDetail = `${blockedOrders.length} órdenes bloqueadas`;
+  }
+  doc.text(`Módulo 02 · Control de Fabricación (${subtitleDetail})`, tableHorizontalMargin, 54);
 
   // Fecha actual en la esquina superior derecha alineada con el margen de la tabla
   const today = new Date();
@@ -122,7 +133,7 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
     'Creada',
   ];
 
-  const tableRows = orders.map((order) => [
+  const tableRows = allOrders.map((order) => [
     `ORD-${String(order.id).padStart(4, '0')}`,
     order.estado,
     order.origen === 'GESTION_PEDIDOS' ? 'Nexus' : 'Manual',
@@ -181,20 +192,26 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
     },
     didParseCell: (data) => {
       if (data.section === 'body') {
-        // Filas alternas
+        const order = allOrders[data.row.index];
+
+        // Filas alternas para activas
         if (data.row.index % 2 === 1) {
           data.cell.styles.fillColor = [248, 250, 252]; // slate-50
         }
 
-        const order = orders[data.row.index];
         if (order) {
+          // Si la orden está bloqueada, aplicar fondo sutil distintivo en la fila
+          if (order.estado === 'BLOQUEADA') {
+            data.cell.styles.fillColor = data.row.index % 2 === 1 ? [254, 243, 199] : [255, 251, 235]; // amber-100 / amber-50
+          }
+
           // Color de estado
           if (data.column.index === 1) {
             if (order.estado === 'ACTIVA') {
               data.cell.styles.textColor = [39, 97, 61]; // verde
               data.cell.styles.fontStyle = 'bold';
             } else if (order.estado === 'BLOQUEADA') {
-              data.cell.styles.textColor = [144, 96, 0]; // ámbar/marrón
+              data.cell.styles.textColor = [180, 83, 9]; // amber-700
               data.cell.styles.fontStyle = 'bold';
             }
           }
@@ -232,7 +249,7 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
   // Fallback si el navegador bloquea ventanas emergentes
   if (!openedTab) {
     const filenameDate = today.toISOString().split('T')[0];
-    doc.save(`ordenes_activas_produccion_${filenameDate}.pdf`);
+    doc.save(`ordenes_produccion_${filenameDate}.pdf`);
   }
 
   // Liberar el blob después de 1 minuto
