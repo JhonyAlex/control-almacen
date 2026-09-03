@@ -75,6 +75,7 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 allowBuilds:
+  core-js: false
   esbuild: true
 
 overrides:
