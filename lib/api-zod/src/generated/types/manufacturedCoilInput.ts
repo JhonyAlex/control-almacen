@@ -8,6 +8,9 @@
 
 export interface ManufacturedCoilInput {
   ordenId: number;
-  /** @exclusiveMinimum 0 */
+  /**
+     * @minimum 100
+     * @maximum 25000
+     */
   metros: number;
 }

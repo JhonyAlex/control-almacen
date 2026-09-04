@@ -811,7 +811,8 @@ components:
           type: number
         metros:
           type: number
-          exclusiveMinimum: 0
+          minimum: 100
+          maximum: 25000
     RemnantInput:
       allOf:
         - $ref: "#/components/schemas/CoilCharacteristics"
@@ -820,7 +821,8 @@ components:
           properties:
             metros:
               type: number
-              exclusiveMinimum: 0
+              minimum: 100
+              maximum: 25000
     Coil:
       allOf:
         - type: object

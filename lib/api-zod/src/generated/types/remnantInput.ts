@@ -8,6 +8,9 @@
 import type { CoilCharacteristics } from './coilCharacteristics';
 
 export type RemnantInput = CoilCharacteristics & {
-  /** @exclusiveMinimum 0 */
+  /**
+     * @minimum 100
+     * @maximum 25000
+     */
   metros: number;
 };

@@ -28,6 +28,7 @@ function Home({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
   const inventoryQuery = useListInventory();
   const ordersQuery = useListOrders({ status: OrderStatus.BLOQUEADA });
+  const allOrdersQuery = useListOrders();
   const addManufactured = useAddManufacturedCoil();
   const addRemnant = useAddProductionRemnant();
   const consume = useConsumeInventoryItem();
@@ -35,20 +36,310 @@ function Home({ canManage }: { canManage: boolean }) {
   const [pendingConsume, setPendingConsume] = useState<Coil | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [remnantAncho, setRemnantAncho] = useState<string>('');
+  const [remnantMicras, setRemnantMicras] = useState<string>('');
+  const [remnantCamisa, setRemnantCamisa] = useState<string>('');
+  const [remnantMaterial, setRemnantMaterial] = useState<string>('');
+
   const items = inventoryQuery.data?.items ?? [];
   const groups = useMemo(() => groupInventory(items), [items]);
   const activeOrders = ordersQuery.data ?? [];
+  const allOrders = allOrdersQuery.data ?? [];
+
+  const orderSpecs = useMemo(() => {
+    const specs: Array<{ ancho: number; micras: number; camisa: string; material: string }> = [];
+    const seen = new Set<string>();
+    for (const order of allOrders) {
+      const key = `${order.ancho}__${order.micras}__${order.camisa}__${order.material}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        specs.push({
+          ancho: order.ancho,
+          micras: order.micras,
+          camisa: String(order.camisa),
+          material: order.material,
+        });
+      }
+    }
+    return specs;
+  }, [allOrders]);
+
+  const availableAnchos = useMemo(() => {
+    const set = new Set<number>();
+    for (const s of orderSpecs) {
+      set.add(s.ancho);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [orderSpecs]);
+
+  const availableMicras = useMemo(() => {
+    if (!remnantAncho) return [];
+    const set = new Set<number>();
+    for (const s of orderSpecs) {
+      if (String(s.ancho) === remnantAncho) {
+        set.add(s.micras);
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [orderSpecs, remnantAncho]);
+
+  const availableCamisas = useMemo(() => {
+    if (!remnantAncho || !remnantMicras) return [];
+    const set = new Set<string>();
+    for (const s of orderSpecs) {
+      if (String(s.ancho) === remnantAncho && String(s.micras) === remnantMicras) {
+        set.add(s.camisa);
+      }
+    }
+    return Array.from(set).sort();
+  }, [orderSpecs, remnantAncho, remnantMicras]);
+
+  const availableMaterials = useMemo(() => {
+    if (!remnantAncho || !remnantMicras || !remnantCamisa) return [];
+    const set = new Set<string>();
+    for (const s of orderSpecs) {
+      if (
+        String(s.ancho) === remnantAncho &&
+        String(s.micras) === remnantMicras &&
+        s.camisa === remnantCamisa
+      ) {
+        set.add(s.material);
+      }
+    }
+    return Array.from(set).sort();
+  }, [orderSpecs, remnantAncho, remnantMicras, remnantCamisa]);
+
+  const handleAnchoChange = (newAncho: string) => {
+    setRemnantAncho(newAncho);
+    if (!newAncho) {
+      setRemnantMicras('');
+      setRemnantCamisa('');
+      setRemnantMaterial('');
+      return;
+    }
+
+    const nextMicras = Array.from(
+      new Set(orderSpecs.filter((s) => String(s.ancho) === newAncho).map((s) => s.micras)),
+    ).sort((a, b) => a - b);
+
+    if (nextMicras.length === 1) {
+      const singleMicras = String(nextMicras[0]);
+      setRemnantMicras(singleMicras);
+
+      const nextCamisas = Array.from(
+        new Set(
+          orderSpecs
+            .filter((s) => String(s.ancho) === newAncho && String(s.micras) === singleMicras)
+            .map((s) => s.camisa),
+        ),
+      ).sort();
+
+      if (nextCamisas.length === 1) {
+        const singleCamisa = nextCamisas[0];
+        setRemnantCamisa(singleCamisa);
+
+        const nextMaterials = Array.from(
+          new Set(
+            orderSpecs
+              .filter(
+                (s) =>
+                  String(s.ancho) === newAncho &&
+                  String(s.micras) === singleMicras &&
+                  s.camisa === singleCamisa,
+              )
+              .map((s) => s.material),
+          ),
+        ).sort();
+
+        if (nextMaterials.length === 1) {
+          setRemnantMaterial(nextMaterials[0]);
+        } else if (nextMaterials.includes(remnantMaterial)) {
+          // Keep
+        } else {
+          setRemnantMaterial('');
+        }
+      } else if (nextCamisas.includes(remnantCamisa)) {
+        const nextMaterials = Array.from(
+          new Set(
+            orderSpecs
+              .filter(
+                (s) =>
+                  String(s.ancho) === newAncho &&
+                  String(s.micras) === singleMicras &&
+                  s.camisa === remnantCamisa,
+              )
+              .map((s) => s.material),
+          ),
+        ).sort();
+        if (nextMaterials.length === 1) {
+          setRemnantMaterial(nextMaterials[0]);
+        } else if (!nextMaterials.includes(remnantMaterial)) {
+          setRemnantMaterial('');
+        }
+      } else {
+        setRemnantCamisa('');
+        setRemnantMaterial('');
+      }
+    } else if (nextMicras.map(String).includes(remnantMicras)) {
+      const nextCamisas = Array.from(
+        new Set(
+          orderSpecs
+            .filter((s) => String(s.ancho) === newAncho && String(s.micras) === remnantMicras)
+            .map((s) => s.camisa),
+        ),
+      ).sort();
+      if (nextCamisas.length === 1) {
+        setRemnantCamisa(nextCamisas[0]);
+        const nextMaterials = Array.from(
+          new Set(
+            orderSpecs
+              .filter(
+                (s) =>
+                  String(s.ancho) === newAncho &&
+                  String(s.micras) === remnantMicras &&
+                  s.camisa === nextCamisas[0],
+              )
+              .map((s) => s.material),
+          ),
+        ).sort();
+        if (nextMaterials.length === 1) {
+          setRemnantMaterial(nextMaterials[0]);
+        } else if (!nextMaterials.includes(remnantMaterial)) {
+          setRemnantMaterial('');
+        }
+      } else if (!nextCamisas.includes(remnantCamisa)) {
+        setRemnantCamisa('');
+        setRemnantMaterial('');
+      }
+    } else {
+      setRemnantMicras('');
+      setRemnantCamisa('');
+      setRemnantMaterial('');
+    }
+  };
+
+  const handleMicrasChange = (newMicras: string) => {
+    setRemnantMicras(newMicras);
+    if (!newMicras) {
+      setRemnantCamisa('');
+      setRemnantMaterial('');
+      return;
+    }
+
+    const nextCamisas = Array.from(
+      new Set(
+        orderSpecs
+          .filter((s) => String(s.ancho) === remnantAncho && String(s.micras) === newMicras)
+          .map((s) => s.camisa),
+      ),
+    ).sort();
+
+    if (nextCamisas.length === 1) {
+      const singleCamisa = nextCamisas[0];
+      setRemnantCamisa(singleCamisa);
+
+      const nextMaterials = Array.from(
+        new Set(
+          orderSpecs
+            .filter(
+              (s) =>
+                String(s.ancho) === remnantAncho &&
+                String(s.micras) === newMicras &&
+                s.camisa === singleCamisa,
+            )
+            .map((s) => s.material),
+        ),
+      ).sort();
+
+      if (nextMaterials.length === 1) {
+        setRemnantMaterial(nextMaterials[0]);
+      } else if (nextMaterials.includes(remnantMaterial)) {
+        // Keep
+      } else {
+        setRemnantMaterial('');
+      }
+    } else if (nextCamisas.includes(remnantCamisa)) {
+      const nextMaterials = Array.from(
+        new Set(
+          orderSpecs
+            .filter(
+              (s) =>
+                String(s.ancho) === remnantAncho &&
+                String(s.micras) === newMicras &&
+                s.camisa === remnantCamisa,
+            )
+            .map((s) => s.material),
+        ),
+      ).sort();
+      if (nextMaterials.length === 1) {
+        setRemnantMaterial(nextMaterials[0]);
+      } else if (!nextMaterials.includes(remnantMaterial)) {
+        setRemnantMaterial('');
+      }
+    } else {
+      setRemnantCamisa('');
+      setRemnantMaterial('');
+    }
+  };
+
+  const handleCamisaChange = (newCamisa: string) => {
+    setRemnantCamisa(newCamisa);
+    if (!newCamisa) {
+      setRemnantMaterial('');
+      return;
+    }
+
+    const nextMaterials = Array.from(
+      new Set(
+        orderSpecs
+          .filter(
+            (s) =>
+              String(s.ancho) === remnantAncho &&
+              String(s.micras) === remnantMicras &&
+              s.camisa === newCamisa,
+          )
+          .map((s) => s.material),
+      ),
+    ).sort();
+
+    if (nextMaterials.length === 1) {
+      setRemnantMaterial(nextMaterials[0]);
+    } else if (!nextMaterials.includes(remnantMaterial)) {
+      setRemnantMaterial('');
+    }
+  };
+
+  const openRemnantModal = () => {
+    setNotice(null);
+    setRemnantAncho('');
+    setRemnantMicras('');
+    setRemnantCamisa('');
+    setRemnantMaterial('');
+    void allOrdersQuery.refetch();
+    setModal('remnant');
+  };
+
+  const closeRemnantModal = () => {
+    setModal(null);
+    setRemnantAncho('');
+    setRemnantMicras('');
+    setRemnantCamisa('');
+    setRemnantMaterial('');
+  };
 
   const refreshInventory = () => inventoryQuery.refetch();
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) });
+    queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
   };
 
   const handleManufactured = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    addManufactured.mutate({ data: { ordenId: Number(form.get('ordenId')), metros: Number(form.get('metros')) } }, {
+    const metros = Number(form.get('metros'));
+    if (metros < 100 || metros > 25000) return;
+    addManufactured.mutate({ data: { ordenId: Number(form.get('ordenId')), metros } }, {
       onSuccess: () => { invalidateInventory(); setModal(null); setNotice('Bobina fabricada incorporada al almacén.'); },
     });
   };
@@ -56,16 +347,23 @@ function Home({ canManage }: { canManage: boolean }) {
   const handleRemnant = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const metros = Number(form.get('metros'));
+    if (metros < 100 || metros > 25000) return;
+    if (!remnantAncho || !remnantMicras || !remnantCamisa || !remnantMaterial) return;
     addRemnant.mutate({
       data: {
-        metros: Number(form.get('metros')),
-        ancho: Number(form.get('ancho')),
-        micras: Number(form.get('micras')),
-        camisa: parseCamisa(String(form.get('camisa'))),
-        material: String(form.get('material')) as typeof MATERIALES[number],
+        metros,
+        ancho: Number(remnantAncho),
+        micras: Number(remnantMicras),
+        camisa: parseCamisa(remnantCamisa),
+        material: remnantMaterial as typeof MATERIALES[number],
       },
     }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() }); setModal(null); setNotice('Resto añadido al almacén.'); },
+      onSuccess: () => {
+        invalidateInventory();
+        closeRemnantModal();
+        setNotice('Resto añadido al almacén.');
+      },
     });
   };
 
@@ -86,7 +384,7 @@ function Home({ canManage }: { canManage: boolean }) {
             <p className="mt-3 max-w-xl text-sm text-muted-foreground">Material disponible para expedición a fábrica.{canManage ? ' Registra entradas y mueve bobinas con una sola acción.' : ' Registra entradas y envía material a fábrica.'}</p>
           </div>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => { setNotice(null); setModal('remnant'); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted sm:px-5" data-testid="button-add-remnant"><CirclePlus size={18} /> Añadir resto</button>
+            <button type="button" onClick={openRemnantModal} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted sm:px-5" data-testid="button-add-remnant"><CirclePlus size={18} /> Añadir resto</button>
             <button type="button" onClick={() => { setNotice(null); setModal('manufactured'); }} className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:brightness-110 sm:px-5" data-testid="button-add-manufactured"><Factory size={18} /> Bobina fabricada</button>
           </div>
         </div>
@@ -196,12 +494,138 @@ function Home({ canManage }: { canManage: boolean }) {
         {activeOrders.length === 0 ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center"><AlertTriangle className="mx-auto text-accent" size={25} /><p className="mt-2 text-sm font-medium">No hay órdenes bloqueadas</p><p className="mt-1 text-xs text-muted-foreground">No hay órdenes bloqueadas disponibles para registrar fabricación.</p></div> : <div className="space-y-5"><Field label="Orden de producción"><select name="ordenId" required className={inputClass} defaultValue="" data-testid="select-manufactured-order"><option value="" disabled>Selecciona una orden</option>{activeOrders.map((order) => {
           const pedidosText = order.pedidosRelacionados && order.pedidosRelacionados.length > 0 ? ` [${formatPedidosSummary(order.pedidosRelacionados)}]` : '';
           return <option key={order.id} value={order.id}>#{order.id}{pedidosText} · {order.ancho} mm · {order.micras} µ · pendientes {formatMeters(order.metrosPendientes)} m</option>;
-        })}</select></Field><Field label="Metros fabricados" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 1.250" data-testid="input-manufactured-meters" /></Field></div>}
+        })}</select></Field><Field label="Metros fabricados" hint="mín. 100, máx. 25.000"><input name="metros" type="number" min="100" max="25000" step="1" required className={inputClass} placeholder="Ej. 1.250" data-testid="input-manufactured-meters" /></Field></div>}
       </Modal>
 
-      <Modal open={modal === 'remnant'} onClose={() => setModal(null)} onSubmit={handleRemnant} eyebrow="Entrada de almacén" title="Añadir resto" submitLabel={addRemnant.isPending ? 'Guardando…' : 'Guardar resto'} submitDisabled={addRemnant.isPending}>
-        {addRemnant.isError && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-remnant">No se pudo guardar el resto. Revisa los datos.</p>}
-        <div className="grid gap-5 sm:grid-cols-2"><Field label="Ancho" hint="mm"><input name="ancho" type="number" min="1" required className={inputClass} placeholder="Ej. 1250" data-testid="input-remnant-width" /></Field><Field label="Micras"><input name="micras" type="number" min="1" required className={inputClass} placeholder="Ej. 23" data-testid="input-remnant-microns" /></Field><Field label="Camisa"><select name="camisa" required className={inputClass} defaultValue="" data-testid="select-remnant-sleeve"><option value="" disabled>Selecciona</option>{CAMISAS.map((camisa) => <option key={camisa} value={camisa}>{camisa}</option>)}</select></Field><Field label="Material"><select name="material" required className={inputClass} defaultValue="" data-testid="select-remnant-material"><option value="" disabled>Selecciona</option>{MATERIALES.map((material) => <option key={material} value={material}>{material}</option>)}</select></Field><div className="sm:col-span-2"><Field label="Metros del resto" hint="cantidad positiva"><input name="metros" type="number" min="1" step="1" required className={inputClass} placeholder="Ej. 840" data-testid="input-remnant-meters" /></Field></div></div>
+      <Modal
+        open={modal === 'remnant'}
+        onClose={closeRemnantModal}
+        onSubmit={handleRemnant}
+        eyebrow="Entrada de almacén"
+        title="Añadir resto"
+        submitLabel={addRemnant.isPending ? 'Guardando…' : 'Guardar resto'}
+        submitDisabled={
+          addRemnant.isPending ||
+          allOrders.length === 0 ||
+          !remnantAncho ||
+          !remnantMicras ||
+          !remnantCamisa ||
+          !remnantMaterial
+        }
+      >
+        {addRemnant.isError && (
+          <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-remnant">
+            No se pudo guardar el resto. Revisa los datos.
+          </p>
+        )}
+        {allOrders.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
+            <AlertTriangle className="mx-auto text-accent" size={25} />
+            <p className="mt-2 text-sm font-medium">No hay órdenes registradas</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              No hay órdenes disponibles para alimentar las características del resto.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Ancho" hint="mm">
+              <select
+                name="ancho"
+                required
+                className={inputClass}
+                value={remnantAncho}
+                onChange={(e) => handleAnchoChange(e.target.value)}
+                data-testid="select-remnant-width"
+              >
+                <option value="" disabled>Selecciona ancho</option>
+                {availableAnchos.map((ancho) => (
+                  <option key={ancho} value={ancho}>
+                    {ancho} mm
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Micras" hint="µ">
+              <select
+                name="micras"
+                required
+                className={inputClass}
+                value={remnantMicras}
+                onChange={(e) => handleMicrasChange(e.target.value)}
+                disabled={!remnantAncho || availableMicras.length === 0}
+                data-testid="select-remnant-microns"
+              >
+                <option value="" disabled>
+                  {!remnantAncho ? 'Selecciona ancho primero' : 'Selecciona micras'}
+                </option>
+                {availableMicras.map((micras) => (
+                  <option key={micras} value={micras}>
+                    {micras} µ
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Camisa">
+              <select
+                name="camisa"
+                required
+                className={inputClass}
+                value={remnantCamisa}
+                onChange={(e) => handleCamisaChange(e.target.value)}
+                disabled={!remnantMicras || availableCamisas.length === 0}
+                data-testid="select-remnant-sleeve"
+              >
+                <option value="" disabled>
+                  {!remnantMicras ? 'Selecciona micras primero' : 'Selecciona camisa'}
+                </option>
+                {availableCamisas.map((camisa) => (
+                  <option key={camisa} value={camisa}>
+                    {camisa}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Material">
+              <select
+                name="material"
+                required
+                className={inputClass}
+                value={remnantMaterial}
+                onChange={(e) => setRemnantMaterial(e.target.value)}
+                disabled={!remnantCamisa || availableMaterials.length === 0}
+                data-testid="select-remnant-material"
+              >
+                <option value="" disabled>
+                  {!remnantCamisa ? 'Selecciona camisa primero' : 'Selecciona material'}
+                </option>
+                {availableMaterials.map((material) => (
+                  <option key={material} value={material}>
+                    {material}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div className="sm:col-span-2">
+              <Field label="Metros del resto" hint="mín. 100, máx. 25.000">
+                <input
+                  name="metros"
+                  type="number"
+                  min="100"
+                  max="25000"
+                  step="1"
+                  required
+                  className={inputClass}
+                  placeholder="Ej. 840"
+                  data-testid="input-remnant-meters"
+                />
+              </Field>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>

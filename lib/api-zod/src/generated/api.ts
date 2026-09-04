@@ -489,13 +489,14 @@ export const ListInventoryResponse = zod.object({
 /**
  * @summary Add a manufactured coil against an active order
  */
-export const addManufacturedCoilBodyMetrosExclusiveMin = 0;
+export const addManufacturedCoilBodyMetrosMin = 100;
+export const addManufacturedCoilBodyMetrosMax = 25000;
 
 
 
 export const AddManufacturedCoilBody = zod.object({
   "ordenId": zod.number(),
-  "metros": zod.number().gt(addManufacturedCoilBodyMetrosExclusiveMin)
+  "metros": zod.number().min(addManufacturedCoilBodyMetrosMin).max(addManufacturedCoilBodyMetrosMax)
 })
 
 export const AddManufacturedCoilResponse = zod.object({
@@ -523,7 +524,8 @@ export const AddManufacturedCoilResponse = zod.object({
 /**
  * @summary Add a production remnant
  */
-export const addProductionRemnantBodyTwoMetrosExclusiveMin = 0;
+export const addProductionRemnantBodyTwoMetrosMin = 100;
+export const addProductionRemnantBodyTwoMetrosMax = 25000;
 
 
 
@@ -533,7 +535,7 @@ export const AddProductionRemnantBody = zod.object({
   "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
   "material": zod.enum(['OPP', 'OPP RECICLADO'])
 }).and(zod.object({
-  "metros": zod.number().gt(addProductionRemnantBodyTwoMetrosExclusiveMin)
+  "metros": zod.number().min(addProductionRemnantBodyTwoMetrosMin).max(addProductionRemnantBodyTwoMetrosMax)
 }))
 
 export const AddProductionRemnantResponse = zod.object({
