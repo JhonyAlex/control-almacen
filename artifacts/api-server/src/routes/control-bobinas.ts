@@ -12,9 +12,11 @@ import {
   DeleteOrderParams,
   FinalizeOrderBody,
   FinalizeOrderParams,
+  ListInventoryQueryParams,
   ListOrderCoilsParams,
   ListOrdersQueryParams,
   ReorderOrdersBody,
+  RestoreInventoryItemParams,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import {
@@ -578,12 +580,14 @@ router.get("/orders/:id/coils", async (req, res, next) => {
   }
 });
 
-router.get("/inventory", async (_req, res, next) => {
+router.get("/inventory", async (req, res, next) => {
   try {
+    const query = ListInventoryQueryParams.parse(req.query);
+    const targetStatus = query.status ?? "DISPONIBLE";
     const items = await db
       .select()
       .from(coils)
-      .where(eq(coils.estado, "DISPONIBLE"))
+      .where(eq(coils.estado, targetStatus))
       .orderBy(asc(coils.id));
     const orderIds = items
       .map((i) => i.ordenId)
@@ -704,6 +708,31 @@ router.post("/inventory/:id/consume", async (req, res, next) => {
       .returning();
     if (!updated) {
       res.status(404).json({ error: "La bobina ya no está disponible" });
+      return;
+    }
+    let related: RelatedPedidoView[] = [];
+    if (updated.ordenId) {
+      const pedidosMap = await getPedidosByOrderIds([updated.ordenId]);
+      related = pedidosMap.get(updated.ordenId) ?? [];
+    }
+    res.json(coilView(updated, related));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/inventory/:id/restore", async (req, res, next) => {
+  try {
+    const { id } = RestoreInventoryItemParams.parse({
+      id: Number(req.params.id),
+    });
+    const [updated] = await db
+      .update(coils)
+      .set({ estado: "DISPONIBLE" })
+      .where(and(eq(coils.id, id), eq(coils.estado, "EN FÁBRICA")))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "La bobina no está en fábrica o no existe" });
       return;
     }
     let related: RelatedPedidoView[] = [];

@@ -15,6 +15,7 @@ export * from './coilStatus';
 export * from './coilTipo';
 export * from './healthStatus';
 export * from './inventorySummary';
+export * from './listInventoryParams';
 export * from './listOrdersParams';
 export * from './loginInput';
 export * from './manufacturedCoilInput';

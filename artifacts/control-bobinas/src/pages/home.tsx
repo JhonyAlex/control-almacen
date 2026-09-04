@@ -1,7 +1,8 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, CirclePlus, Factory, Layers3, Package, PackageCheck, RefreshCw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Check, CirclePlus, Factory, Layers3, Package, PackageCheck, RefreshCw, RotateCcw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
 import {
+  CoilStatus,
   CoilTipo,
   getListInventoryQueryKey,
   getListOrdersQueryKey,
@@ -11,6 +12,7 @@ import {
   useConsumeInventoryItem,
   useListInventory,
   useListOrders,
+  useRestoreInventoryItem,
   type Coil,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
@@ -26,12 +28,14 @@ function QueryError({ onRetry }: { onRetry: () => void }) {
 
 function Home({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
-  const inventoryQuery = useListInventory();
+  const inventoryQuery = useListInventory({ status: CoilStatus.DISPONIBLE });
+  const factoryQuery = useListInventory({ status: CoilStatus.EN_FÁBRICA });
   const ordersQuery = useListOrders({ status: OrderStatus.BLOQUEADA });
   const allOrdersQuery = useListOrders();
   const addManufactured = useAddManufacturedCoil();
   const addRemnant = useAddProductionRemnant();
   const consume = useConsumeInventoryItem();
+  const restore = useRestoreInventoryItem();
   const [modal, setModal] = useState<'manufactured' | 'remnant' | null>(null);
   const [pendingConsume, setPendingConsume] = useState<Coil | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -45,6 +49,7 @@ function Home({ canManage }: { canManage: boolean }) {
   const groups = useMemo(() => groupInventory(items), [items]);
   const activeOrders = ordersQuery.data ?? [];
   const allOrders = allOrdersQuery.data ?? [];
+  const factoryCoils = factoryQuery.data?.items ?? [];
 
   const orderSpecs = useMemo(() => {
     const specs: Array<{ ancho: number; micras: number; camisa: string; material: string }> = [];
@@ -327,11 +332,26 @@ function Home({ canManage }: { canManage: boolean }) {
     setRemnantMaterial('');
   };
 
-  const refreshInventory = () => inventoryQuery.refetch();
+  const refreshInventory = () => {
+    inventoryQuery.refetch();
+    factoryQuery.refetch();
+  };
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) });
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+  };
+
+  const handleRestore = (id: number) => {
+    restore.mutate({ id }, {
+      onSuccess: () => {
+        invalidateInventory();
+        setNotice('Bobina devuelta a la orden y restablecida en el almacén.');
+      },
+      onError: () => {
+        setNotice('No se pudo devolver la bobina. Inténtalo de nuevo.');
+      },
+    });
   };
 
   const handleManufactured = (event: FormEvent<HTMLFormElement>) => {
@@ -390,8 +410,8 @@ function Home({ canManage }: { canManage: boolean }) {
         </div>
 
         {notice && <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#a9c9b1] bg-[#eaf4eb] px-4 py-3 text-sm font-medium text-[#27613d]" role="status" data-testid="status-inventory-success"><Check size={18} /> {notice}<button type="button" className="ml-auto text-xs uppercase tracking-wider underline" onClick={() => setNotice(null)} data-testid="button-dismiss-notice">Cerrar</button></div>}
-        {(inventoryQuery.isLoading || ordersQuery.isLoading) && <LoadingState />}
-        {inventoryQuery.isError && !inventoryQuery.isLoading && <QueryError onRetry={refreshInventory} />}
+        {(inventoryQuery.isLoading || ordersQuery.isLoading || factoryQuery.isLoading) && <LoadingState />}
+        {(inventoryQuery.isError || factoryQuery.isError) && !inventoryQuery.isLoading && <QueryError onRetry={refreshInventory} />}
         {!inventoryQuery.isLoading && !inventoryQuery.isError && (
           <>
             <section className="load-in-delay">
@@ -453,37 +473,86 @@ function Home({ canManage }: { canManage: boolean }) {
             </section>
 
             <section className="mt-10 pb-5">
-              <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Unidades</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Lista para mover</h2></div><span className="font-data text-[10px] uppercase tracking-wider text-muted-foreground">{items.length} registros</span></div>
-              {items.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-inventory-list">No hay unidades disponibles.</div> : <div className="overflow-hidden rounded-xl border border-border bg-card"><div className={`hidden gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid ${canManage ? 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px]' : 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr]'}`}><span>Identificación / Pedido</span><span>Tipo</span><span>Metros</span><span>Estado</span>{canManage && <span />}</div>{items.map((item) => {
-                const itemPedidos = item.pedidosRelacionados ?? [];
-                return (
-                  <div key={item.id} className={`grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:items-center md:gap-4 md:px-5 ${canManage ? 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_150px]' : 'md:grid-cols-[1.4fr_.65fr_.7fr_.6fr]'}`}>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-foreground" data-testid={`text-inventory-item-${item.id}`}>{item.ancho} mm · {item.micras} µ</p>
-                        {item.ordenId && (
-                          <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
-                            ORD-{String(item.ordenId).padStart(4, '0')}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">Camisa {item.camisa} · {item.material}</p>
-                      {itemPedidos.length > 0 ? (
-                        <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">
-                          <Package size={13} className="shrink-0" />
-                          {formatPedidosSummary(itemPedidos)}
-                        </p>
-                      ) : (
-                        <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
-                      )}
-                    </div>
-                    <span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">{item.tipo}</span>
-                    <p className="font-data text-lg font-semibold">{formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span></p>
-                    <span className="flex items-center gap-1.5 text-xs font-medium text-[#3c7d52]"><span className="h-1.5 w-1.5 rounded-full bg-[#4c9a71]" />{item.estado}</span>
-                    <button type="button" onClick={() => setPendingConsume(item)} className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-consume-${item.id}`}><Send size={15} /> Enviar a fábrica</button>
+              <div className="mb-4 flex items-end justify-between">
+                <div>
+                  <p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Fábrica / En planta</p>
+                  <h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Bobinas movidas a fábrica</h2>
+                </div>
+                <span className="font-data text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {factoryCoils.length} {factoryCoils.length === 1 ? 'bobina' : 'bobinas'}
+                </span>
+              </div>
+              {factoryCoils.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-10 text-center text-sm text-muted-foreground" data-testid="empty-factory-coils">
+                  No hay bobinas movidas a fábrica actualmente.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="hidden gap-4 border-b border-border bg-muted/55 px-5 py-3 font-data text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground md:grid md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_180px]">
+                    <span>Identificación / Pedido</span>
+                    <span>Tipo</span>
+                    <span>Metros</span>
+                    <span>Estado</span>
+                    <span className="text-right">Acción</span>
                   </div>
-                );
-              })}</div>}
+                  {factoryCoils.map((item) => {
+                    const itemPedidos = item.pedidosRelacionados ?? [];
+                    const isRestoring = restore.isPending && restore.variables?.id === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.4fr_.65fr_.7fr_.6fr_180px] md:items-center md:gap-4 md:px-5"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-foreground" data-testid={`text-factory-item-${item.id}`}>
+                              {item.ancho} mm · {item.micras} µ
+                            </p>
+                            {item.ordenId && (
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
+                                ORD-{String(item.ordenId).padStart(4, '0')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Camisa {item.camisa} · {item.material}
+                          </p>
+                          {itemPedidos.length > 0 ? (
+                            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">
+                              <Package size={13} className="shrink-0" />
+                              {formatPedidosSummary(itemPedidos)}
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 font-data text-[10px] text-muted-foreground">Sin pedido asociado</p>
+                          )}
+                        </div>
+                        <span className="w-fit rounded-md bg-muted px-2 py-1 font-data text-[10px] font-semibold">
+                          {item.tipo}
+                        </span>
+                        <p className="font-data text-lg font-semibold">
+                          {formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span>
+                        </p>
+                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          {item.estado}
+                        </span>
+                        <div className="flex md:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRestore(item.id)}
+                            disabled={isRestoring}
+                            className="pressable flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted disabled:opacity-50"
+                            data-testid={`button-restore-coil-${item.id}`}
+                          >
+                            <RotateCcw size={15} className={isRestoring ? 'animate-spin' : ''} />
+                            {isRestoring ? 'Devolviendo…' : 'Devolver a la orden'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </>
         )}

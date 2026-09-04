@@ -251,3 +251,7 @@ export type ListOrdersParams = {
 status?: OrderStatus;
 };
 
+export type ListInventoryParams = {
+status?: CoilStatus;
+};
+

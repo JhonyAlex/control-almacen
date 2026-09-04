@@ -414,6 +414,12 @@ paths:
       operationId: listInventory
       tags: [inventory]
       summary: List available warehouse material
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CoilStatus"
       responses:
         "200":
           description: Inventory and total meters
@@ -479,6 +485,26 @@ paths:
                 $ref: "#/components/schemas/Coil"
         "404":
           description: Item not available
+  /inventory/{id}/restore:
+    post:
+      operationId: restoreInventoryItem
+      tags: [inventory]
+      summary: Restore a coil from factory back to available warehouse stock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Restored item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+        "404":
+          description: Item not available or not in factory
   /integrations/gestion-pedidos/nexus-orders:
     post:
       operationId: processNexusOrder

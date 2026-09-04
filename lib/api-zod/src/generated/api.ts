@@ -461,6 +461,10 @@ export const ListOrderCoilsResponse = zod.array(ListOrderCoilsResponseItem)
 /**
  * @summary List available warehouse material
  */
+export const ListInventoryQueryParams = zod.object({
+  "status": zod.enum(['DISPONIBLE', 'EN FÁBRICA']).optional()
+})
+
 export const ListInventoryResponse = zod.object({
   "totalMetros": zod.number(),
   "items": zod.array(zod.object({
@@ -568,6 +572,35 @@ export const ConsumeInventoryItemParams = zod.object({
 })
 
 export const ConsumeInventoryItemResponse = zod.object({
+  "id": zod.number(),
+  "tipo": zod.enum(['BOBINA', 'RESTO']),
+  "metros": zod.number(),
+  "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
+  "ordenId": zod.number().nullish(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
+  "creadoEn": zod.coerce.date()
+}).and(zod.object({
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
+  "material": zod.enum(['OPP', 'OPP RECICLADO'])
+}))
+
+
+/**
+ * @summary Restore a coil from factory back to available warehouse stock
+ */
+export const RestoreInventoryItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RestoreInventoryItemResponse = zod.object({
   "id": zod.number(),
   "tipo": zod.enum(['BOBINA', 'RESTO']),
   "metros": zod.number(),
