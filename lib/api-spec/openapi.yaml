@@ -840,15 +840,19 @@ components:
           minimum: 100
           maximum: 25000
     RemnantInput:
-      allOf:
-        - $ref: "#/components/schemas/CoilCharacteristics"
-        - type: object
-          required: [metros]
-          properties:
-            metros:
-              type: number
-              minimum: 100
-              maximum: 25000
+      type: object
+      required: [ancho, micras, camisa, material, metros]
+      properties:
+        ancho:
+          type: number
+        micras:
+          type: number
+        camisa:
+          type: string
+        material:
+          type: string
+        metros:
+          type: number
     Coil:
       allOf:
         - type: object

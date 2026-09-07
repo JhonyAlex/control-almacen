@@ -16,7 +16,7 @@ import {
   type Coil,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
-import { characteristicsLabel, CAMISAS, formatMeters, formatPedidosSummary, groupInventory, MATERIALES, parseCamisa } from '@/lib/domain';
+import { characteristicsLabel, formatMeters, formatPedidosSummary, groupInventory } from '@/lib/domain';
 
 function LoadingState() {
   return <div className="space-y-3" aria-label="Cargando inventario" data-testid="loading-inventory"><div className="h-24 animate-pulse rounded-xl bg-muted" /><div className="grid gap-3 sm:grid-cols-2"><div className="h-36 animate-pulse rounded-xl bg-muted" /><div className="h-36 animate-pulse rounded-xl bg-muted" /></div></div>;
@@ -368,15 +368,18 @@ function Home({ canManage }: { canManage: boolean }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const metros = Number(form.get('metros'));
-    if (metros < 100 || metros > 25000) return;
-    if (!remnantAncho || !remnantMicras || !remnantCamisa || !remnantMaterial) return;
+    const ancho = Number(form.get('ancho'));
+    const micras = Number(form.get('micras'));
+    const camisa = String(form.get('camisa') ?? '').trim();
+    const material = String(form.get('material') ?? '').trim();
+    if (!Number.isFinite(metros) || !Number.isFinite(ancho) || !Number.isFinite(micras) || !camisa || !material) return;
     addRemnant.mutate({
       data: {
         metros,
-        ancho: Number(remnantAncho),
-        micras: Number(remnantMicras),
-        camisa: parseCamisa(remnantCamisa),
-        material: remnantMaterial as typeof MATERIALES[number],
+        ancho,
+        micras,
+        camisa,
+        material,
       },
     }, {
       onSuccess: () => {
@@ -573,119 +576,96 @@ function Home({ canManage }: { canManage: boolean }) {
         eyebrow="Entrada de almacén"
         title="Añadir resto"
         submitLabel={addRemnant.isPending ? 'Guardando…' : 'Guardar resto'}
-        submitDisabled={
-          addRemnant.isPending ||
-          allOrders.length === 0 ||
-          !remnantAncho ||
-          !remnantMicras ||
-          !remnantCamisa ||
-          !remnantMaterial
-        }
+        submitDisabled={addRemnant.isPending}
       >
         {addRemnant.isError && (
           <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-add-remnant">
             No se pudo guardar el resto. Revisa los datos.
           </p>
         )}
-        {allOrders.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
-            <AlertTriangle className="mx-auto text-accent" size={25} />
-            <p className="mt-2 text-sm font-medium">No hay órdenes registradas</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              No hay órdenes disponibles para alimentar las características del resto.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Ancho" hint="mm">
-              <select
+              <input
                 name="ancho"
+                type="number"
+                step="any"
                 required
                 className={inputClass}
-                value={remnantAncho}
-                onChange={(e) => handleAnchoChange(e.target.value)}
+                list="remnant-width-options"
+                placeholder="Ej. 1.200"
                 data-testid="select-remnant-width"
-              >
-                <option value="" disabled>Selecciona ancho</option>
+              />
+              <datalist id="remnant-width-options">
                 {availableAnchos.map((ancho) => (
                   <option key={ancho} value={ancho}>
                     {ancho} mm
                   </option>
                 ))}
-              </select>
+              </datalist>
             </Field>
 
             <Field label="Micras" hint="µ">
-              <select
+              <input
                 name="micras"
+                type="number"
+                step="any"
                 required
                 className={inputClass}
-                value={remnantMicras}
-                onChange={(e) => handleMicrasChange(e.target.value)}
-                disabled={!remnantAncho || availableMicras.length === 0}
+                list="remnant-microns-options"
+                placeholder="Ej. 30"
                 data-testid="select-remnant-microns"
-              >
-                <option value="" disabled>
-                  {!remnantAncho ? 'Selecciona ancho primero' : 'Selecciona micras'}
-                </option>
-                {availableMicras.map((micras) => (
+              />
+              <datalist id="remnant-microns-options">
+                {Array.from(new Set(orderSpecs.map((spec) => spec.micras))).sort((a, b) => a - b).map((micras) => (
                   <option key={micras} value={micras}>
                     {micras} µ
                   </option>
                 ))}
-              </select>
+              </datalist>
             </Field>
 
             <Field label="Camisa">
-              <select
+              <input
                 name="camisa"
                 required
                 className={inputClass}
-                value={remnantCamisa}
-                onChange={(e) => handleCamisaChange(e.target.value)}
-                disabled={!remnantMicras || availableCamisas.length === 0}
+                list="remnant-sleeve-options"
+                placeholder="Ej. 400"
                 data-testid="select-remnant-sleeve"
-              >
-                <option value="" disabled>
-                  {!remnantMicras ? 'Selecciona micras primero' : 'Selecciona camisa'}
-                </option>
-                {availableCamisas.map((camisa) => (
+              />
+              <datalist id="remnant-sleeve-options">
+                {Array.from(new Set(orderSpecs.map((spec) => spec.camisa))).sort().map((camisa) => (
                   <option key={camisa} value={camisa}>
                     {camisa}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </Field>
 
             <Field label="Material">
-              <select
+              <input
                 name="material"
                 required
                 className={inputClass}
-                value={remnantMaterial}
-                onChange={(e) => setRemnantMaterial(e.target.value)}
-                disabled={!remnantCamisa || availableMaterials.length === 0}
+                list="remnant-material-options"
+                placeholder="Ej. OPP"
                 data-testid="select-remnant-material"
-              >
-                <option value="" disabled>
-                  {!remnantCamisa ? 'Selecciona camisa primero' : 'Selecciona material'}
-                </option>
-                {availableMaterials.map((material) => (
+              />
+              <datalist id="remnant-material-options">
+                {Array.from(new Set(orderSpecs.map((spec) => spec.material))).sort().map((material) => (
                   <option key={material} value={material}>
                     {material}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </Field>
 
             <div className="sm:col-span-2">
-              <Field label="Metros del resto" hint="mín. 100, máx. 25.000">
+              <Field label="Metros del resto">
                 <input
                   name="metros"
                   type="number"
-                  min="100"
-                  max="25000"
-                  step="1"
+                  step="any"
                   required
                   className={inputClass}
                   placeholder="Ej. 840"
@@ -693,8 +673,7 @@ function Home({ canManage }: { canManage: boolean }) {
                 />
               </Field>
             </div>
-          </div>
-        )}
+        </div>
       </Modal>
 
       <Modal open={!!pendingConsume} onClose={() => setPendingConsume(null)} title="Enviar a fábrica" eyebrow="Confirmar movimiento" submitLabel={consume.isPending ? 'Moviendo…' : 'Confirmar envío'} submitDisabled={consume.isPending} destructive onSubmit={(event) => { event.preventDefault(); handleConsume(); }}>

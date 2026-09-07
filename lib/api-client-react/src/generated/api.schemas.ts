@@ -215,13 +215,13 @@ export interface ManufacturedCoilInput {
   metros: number;
 }
 
-export type RemnantInput = CoilCharacteristics & {
-  /**
-     * @minimum 100
-     * @maximum 25000
-     */
+export interface RemnantInput {
+  ancho: number;
+  micras: number;
+  camisa: string;
+  material: string;
   metros: number;
-};
+}
 
 export type CoilTipo = typeof CoilTipo[keyof typeof CoilTipo];
 

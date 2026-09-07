@@ -528,19 +528,13 @@ export const AddManufacturedCoilResponse = zod.object({
 /**
  * @summary Add a production remnant
  */
-export const addProductionRemnantBodyTwoMetrosMin = 100;
-export const addProductionRemnantBodyTwoMetrosMax = 25000;
-
-
-
 export const AddProductionRemnantBody = zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
-  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
-  "material": zod.enum(['OPP', 'OPP RECICLADO'])
-}).and(zod.object({
-  "metros": zod.number().min(addProductionRemnantBodyTwoMetrosMin).max(addProductionRemnantBodyTwoMetrosMax)
-}))
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metros": zod.number()
+})
 
 export const AddProductionRemnantResponse = zod.object({
   "id": zod.number(),

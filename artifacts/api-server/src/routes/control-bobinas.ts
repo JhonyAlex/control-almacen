@@ -674,10 +674,6 @@ router.post("/inventory/coils", async (req, res, next) => {
 router.post("/inventory/remnants", async (req, res, next) => {
   try {
     const body = AddProductionRemnantBody.parse(req.body);
-    if (!CAMISAS.has(String(body.camisa)) || !MATERIALES.has(body.material)) {
-      res.status(400).json({ error: "Características no válidas" });
-      return;
-    }
     const [created] = await db
       .insert(coils)
       .values({

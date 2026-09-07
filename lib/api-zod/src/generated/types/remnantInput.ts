@@ -5,12 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { CoilCharacteristics } from './coilCharacteristics';
 
-export type RemnantInput = CoilCharacteristics & {
-  /**
-     * @minimum 100
-     * @maximum 25000
-     */
+export interface RemnantInput {
+  ancho: number;
+  micras: number;
+  camisa: string;
+  material: string;
   metros: number;
-};
+}
