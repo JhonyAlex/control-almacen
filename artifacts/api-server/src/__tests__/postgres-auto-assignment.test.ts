@@ -33,7 +33,7 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
 
   const seedCoil = async (overrides: Partial<CoilRow> = {}): Promise<number> => {
     const values = {
-      tipo: "BOBINA",
+      tipo: "RESTO",
       metros: "5000.00",
       ancho: "1200.00",
       micras: "30.00",
@@ -165,7 +165,7 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
   // AUTOASIGNACIÓN EN CREACIÓN MANUAL
   // =========================================================================
 
-  it("A1. Orden manual compatible + bobina disponible → asignación automática sin bobina duplicada", async () => {
+  it("A1. Orden manual compatible + resto disponible (Añadir Resto) → asignación automática sin bobina duplicada", async () => {
     const coilId = await seedCoil({ metros: "6000.00" });
 
     const { status, body } = await createOrder({
@@ -192,13 +192,18 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
     assert.equal(Number(coilsCount.rows[0].count), 1);
   });
 
-  it("A2. La bobina asignada conserva su orden de origen (coils.ordenId intacto)", async () => {
+  it("A2. Bobina fabricada (tipo BOBINA) compatible y disponible no se reasigna a otra orden", async () => {
+    // Bobina registrada mediante "Bobina fabricada" para su orden de origen
     const originOrder = await pool.query(
       `INSERT INTO production_orders (ancho, micras, camisa, material, metros_necesarios, estado, origen)
        VALUES ('1200.00','30.00','400','OPP','20000.00','ACTIVA','MANUAL') RETURNING id`,
     );
     const originOrderId = originOrder.rows[0].id as number;
-    const coilId = await seedCoil({ metros: "4000.00", orden_id: originOrderId });
+    const coilId = await seedCoil({
+      tipo: "BOBINA",
+      metros: "9000.00",
+      orden_id: originOrderId,
+    });
 
     const { body } = await createOrder({
       ancho: 1200,
@@ -208,32 +213,22 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
       metrosNecesarios: 8000,
     });
 
+    // La nueva orden no puede apropiarse de la bobina fabricada
+    assert.equal(body.metrosFabricados, 0);
+    assert.equal(body.metrosPendientes, 8000);
+    assert.equal(await assignmentsOf().then((r) => r.length), 0);
+
+    // La bobina conserva su orden de origen y su cobertura intactas
     const coilRes = await pool.query("SELECT * FROM coils WHERE id = $1", [
       coilId,
     ]);
     assert.equal(coilRes.rows[0].orden_id, originOrderId, "coils.ordenId preservado");
-
-    const assignments = await assignmentsOf(body.id);
-    assert.equal(assignments.length, 1);
-    assert.equal(assignments[0].coil_id, coilId);
-
-    // Origin order keeps its traceability but loses the coverage
-    const originCoverage = await pool.query(
-      `SELECT metros_necesarios, estado FROM production_orders WHERE id = $1`,
-      [originOrderId],
-    );
-    assert.equal(Number(originCoverage.rows[0].metros_necesarios), 20000);
-    assert.equal(originCoverage.rows[0].estado, "ACTIVA");
-
-    // New order inventory view shows both origin and assignment
-    const invRes = await fetch(`${baseUrl}/api/inventory`, {
+    const ordersRes = await fetch(`${baseUrl}/api/orders`, {
       headers: { Cookie: sessionCookie },
     });
-    const inv = (await invRes.json()) as any;
-    const item = inv.items.find((i: any) => i.id === coilId);
-    assert.ok(item.asignacion, "asignacion exposed");
-    assert.equal(item.asignacion.ordenId, body.id);
-    assert.equal(item.ordenId, originOrderId, "origin order id exposed");
+    const orders = (await ordersRes.json()) as any[];
+    const origin = orders.find((o) => o.id === originOrderId);
+    assert.equal(origin.metrosFabricados, 9000, "la orden origen conserva su fabricado");
   });
 
   it("A3. Bobina incompatible (material distinto) → no se asigna", async () => {
@@ -572,47 +567,52 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
   // PROGRESO DE ÓRDENES Y TRAZABILIDAD
   // =========================================================================
 
-  it("D1. El progreso de la orden combina fabricadas y asignadas sin contar dos veces", async () => {
+  it("D1. El progreso de la orden combina fabricadas (BOBINA) y asignadas (RESTO) sin contar dos veces", async () => {
     const originOrder = await pool.query(
       `INSERT INTO production_orders (ancho, micras, camisa, material, metros_necesarios, estado, origen)
        VALUES ('1200.00','30.00','400','OPP','20000.00','ACTIVA','MANUAL') RETURNING id`,
     );
     const originOrderId = originOrder.rows[0].id as number;
-    // Bobina fabricada para la orden original (cuenta como su fabricado)
-    await seedCoil({ metros: "2000.00", orden_id: originOrderId });
+    // Bobina fabricada para la orden original (fabricado directo de esa orden)
+    const fabricatedCoil = await seedCoil({
+      tipo: "BOBINA",
+      metros: "2000.00",
+      orden_id: originOrderId,
+    });
 
-    // Nueva orden que roba la bobina grande del pool de la orden original
-    const coilAssigned = await seedCoil({ metros: "4000.00", orden_id: originOrderId });
+    // Resto de almacén compatible: candidato para la nueva orden
+    const restoCoil = await seedCoil({ metros: "3000.00" });
     const { body: newOrder } = await createOrder({
       ancho: 1200,
       micras: 30,
       camisa: 400,
       material: "OPP",
-      metrosNecesarios: 2500,
+      metrosNecesarios: 5000,
     });
 
-    // La nueva orden solo asigna la bobina suficiente más pequeña (4000)
+    // La nueva orden solo asigna el resto (la BOBINA fabricada no es candidata)
     const assignments = await assignmentsOf(newOrder.id);
     assert.equal(assignments.length, 1);
-    assert.equal(assignments[0].coil_id, coilAssigned);
-    assert.equal(newOrder.metrosFabricados, 4000);
-    assert.equal(newOrder.metrosPendientes, 0);
-    assert.equal(newOrder.estado, "FINALIZADA");
+    assert.equal(assignments[0].coil_id, restoCoil);
+    assert.equal(newOrder.metrosFabricados, 3000);
+    assert.equal(newOrder.metrosPendientes, 2000);
 
-    // La orden original conserva trazabilidad de ambas bobinas en coils.ordenId
-    const originCoils = await pool.query(
-      "SELECT COUNT(*) AS count FROM coils WHERE orden_id = $1",
-      [originOrderId],
+    // La bobina fabricada sigue ligada a su orden original, sin asignación
+    const coilRes = await pool.query(
+      "SELECT orden_id FROM coils WHERE id = $1",
+      [fabricatedCoil],
     );
-    assert.equal(Number(originCoils.rows[0].count), 2);
+    assert.equal(coilRes.rows[0].orden_id, originOrderId);
 
-    // Progreso de la orden original: solo la bobina no asignada
+    // Progreso combinado: cada bobina cuenta una sola vez y para su orden
     const ordersRes = await fetch(`${baseUrl}/api/orders`, {
       headers: { Cookie: sessionCookie },
     });
     const orders = (await ordersRes.json()) as any[];
     const origin = orders.find((o) => o.id === originOrderId);
-    assert.equal(origin.metrosFabricados, 2000);
+    assert.equal(origin.metrosFabricados, 2000, "la orden original conserva su fabricado");
+    const created = orders.find((o) => o.id === newOrder.id);
+    assert.equal(created.metrosFabricados, 3000, "la nueva orden solo cuenta el resto asignado");
   });
 
   it("D2. GET /orders/:id/coils incluye bobinas asignadas desde stock", async () => {

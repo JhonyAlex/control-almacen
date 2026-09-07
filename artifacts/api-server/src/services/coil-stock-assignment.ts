@@ -83,11 +83,13 @@ export async function computeOrderCoveredMeters(
 }
 
 /**
- * Automatically assigns compatible available stock coils to an order until its
- * remaining meter deficit is covered. Must run inside the caller's
- * transaction: candidate rows are locked with FOR UPDATE and assignments are
- * protected by a unique constraint on coil_id, so two concurrent orders can
- * never take the same coil.
+ * Automatically assigns compatible available stock restos ("Añadir Resto")
+ * to an order until its remaining meter deficit is covered. Only coils with
+ * tipo = 'RESTO' are candidates: coils registered through "Bobina fabricada"
+ * already belong to their own order and are never reassigned. Must run inside
+ * the caller's transaction: candidate rows are locked with FOR UPDATE and
+ * assignments are protected by a unique constraint on coil_id, so two
+ * concurrent orders can never take the same coil.
  *
  * `coils.ordenId` is never modified: the assignment table records the
  * commitment while the coil keeps its manufacturing origin.
@@ -114,6 +116,7 @@ export async function autoAssignStockToOrder(
     .from(coils)
     .where(
       sql`${coils.estado} = 'DISPONIBLE'
+        and ${coils.tipo} = 'RESTO'
         and ${coils.ancho} = ${anchoStr}
         and ${coils.micras} = ${micrasStr}
         and lower(trim(${coils.material})) = ${materialComp}

@@ -98,7 +98,9 @@ export const coils = pgTable(
 );
 
 /**
- * Commitment of an existing stock coil to a production order.
+ * Commitment of an existing stock resto ("Añadir Resto") to a production
+ * order, found by automatic stock assignment. Coils registered through
+ * "Bobina fabricada" (tipo = BOBINA) are never assigned.
  *
  * This is deliberately separate from `coils.ordenId`, which keeps representing
  * the order that originally manufactured the coil (historical traceability).
