@@ -36,8 +36,8 @@ function MaterialRow({ item }: { item: Coil }) {
             </span>
           )}
           {isAssignedElsewhere && (
-            <span className="rounded bg-accent/20 px-1.5 py-0.5 font-data text-[10px] font-semibold text-accent-foreground" title="Bobina de stock asignada automáticamente a esta orden">
-              Asignada a {formatOrdenLabel(item.asignacion!.ordenId)}
+            <span className="rounded bg-accent/20 px-1.5 py-0.5 font-data text-[10px] font-semibold text-accent-foreground" title="Resto de stock (Añadir Resto) asignado automáticamente a esta orden">
+              Resto asignado a {formatOrdenLabel(item.asignacion!.ordenId)}
             </span>
           )}
         </div>
