@@ -70,20 +70,64 @@ export const productionOrderPedidos = pgTable(
   ],
 );
 
-export const coils = pgTable("coils", {
-  id: serial("id").primaryKey(),
-  tipo: text("tipo").notNull(),
-  metros: numeric("metros", { precision: 14, scale: 2 }).notNull(),
-  ancho: numeric("ancho", { precision: 12, scale: 2 }).notNull(),
-  micras: numeric("micras", { precision: 12, scale: 2 }).notNull(),
-  camisa: text("camisa").notNull(),
-  material: text("material").notNull(),
-  estado: text("estado").notNull().default("DISPONIBLE"),
-  ordenId: integer("orden_id").references(() => productionOrders.id),
-  creadoEn: timestamp("creado_en", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const coils = pgTable(
+  "coils",
+  {
+    id: serial("id").primaryKey(),
+    tipo: text("tipo").notNull(),
+    metros: numeric("metros", { precision: 14, scale: 2 }).notNull(),
+    ancho: numeric("ancho", { precision: 12, scale: 2 }).notNull(),
+    micras: numeric("micras", { precision: 12, scale: 2 }).notNull(),
+    camisa: text("camisa").notNull(),
+    material: text("material").notNull(),
+    estado: text("estado").notNull().default("DISPONIBLE"),
+    ordenId: integer("orden_id").references(() => productionOrders.id),
+    creadoEn: timestamp("creado_en", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Speeds up stock candidate lookups for automatic assignments, which
+    // always filter by estado + ancho + micras.
+    index("coils_disponible_match_idx").on(
+      table.estado,
+      table.ancho,
+      table.micras,
+    ),
+  ],
+);
+
+/**
+ * Commitment of an existing stock coil to a production order.
+ *
+ * This is deliberately separate from `coils.ordenId`, which keeps representing
+ * the order that originally manufactured the coil (historical traceability).
+ * A coil can be committed to at most one order at a time.
+ */
+export const productionOrderCoilAssignments = pgTable(
+  "production_order_coil_assignments",
+  {
+    id: serial("id").primaryKey(),
+    coilId: integer("coil_id")
+      .notNull()
+      .references(() => coils.id, { onDelete: "cascade" }),
+    ordenId: integer("orden_id")
+      .notNull()
+      .references(() => productionOrders.id, { onDelete: "cascade" }),
+    metros: numeric("metros", { precision: 14, scale: 2 }).notNull(),
+    origen: text("origen").notNull().default("AUTO_STOCK"),
+    asignadoEn: timestamp("asignado_en", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Two orders must never appropriate the same coil simultaneously.
+    uniqueIndex("production_order_coil_assignments_coil_id_key").on(
+      table.coilId,
+    ),
+    index("production_order_coil_assignments_orden_id_idx").on(table.ordenId),
+  ],
+);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -116,10 +160,15 @@ export const insertProductionOrderPedidoSchema = createInsertSchema(
   productionOrderPedidos,
 );
 export const insertCoilSchema = createInsertSchema(coils);
+export const insertProductionOrderCoilAssignmentSchema = createInsertSchema(
+  productionOrderCoilAssignments,
+);
 export type ProductionOrder = typeof productionOrders.$inferSelect;
 export type ProductionOrderPedido = typeof productionOrderPedidos.$inferSelect;
 export type NewProductionOrderPedido =
   typeof productionOrderPedidos.$inferInsert;
 export type Coil = typeof coils.$inferSelect;
+export type ProductionOrderCoilAssignment =
+  typeof productionOrderCoilAssignments.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;

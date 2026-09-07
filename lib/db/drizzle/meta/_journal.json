@@ -36,6 +36,13 @@
       "when": 1788448000000,
       "tag": "0004_manual_finalize_order_nota",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788779305218,
+      "tag": "0005_coil_stock_assignments",
+      "breakpoints": true
     }
   ]
 }

@@ -455,3 +455,43 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------------------------------------------------------
+   Material chips: stable color per material value. The palette avoids
+   the red/green hues used for error/success states and the amber
+   accent used for blocked/in-factory states.
+   ------------------------------------------------------------------ */
+.material-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* hue rotation: blue, purple, cyan, pink, indigo, slate-blue, fuchsia, steel, plum, azure, orchid, graphite */
+.material-chip-0  { background: hsl(215 70% 92%); border-color: hsl(215 55% 76%); color: hsl(215 62% 26%); }
+.material-chip-1  { background: hsl(265 65% 93%); border-color: hsl(265 50% 78%); color: hsl(265 58% 28%); }
+.material-chip-2  { background: hsl(195 65% 91%); border-color: hsl(195 50% 74%); color: hsl(195 62% 25%); }
+.material-chip-3  { background: hsl(330 60% 93%); border-color: hsl(330 45% 78%); color: hsl(330 55% 29%); }
+.material-chip-4  { background: hsl(238 60% 93%); border-color: hsl(238 45% 78%); color: hsl(238 52% 28%); }
+.material-chip-5  { background: hsl(222 45% 91%); border-color: hsl(222 38% 74%); color: hsl(222 40% 26%); }
+.material-chip-6  { background: hsl(295 60% 93%); border-color: hsl(295 45% 78%); color: hsl(295 52% 28%); }
+.material-chip-7  { background: hsl(185 45% 90%); border-color: hsl(185 38% 72%); color: hsl(185 48% 24%); }
+.material-chip-8  { background: hsl(280 50% 93%); border-color: hsl(280 40% 78%); color: hsl(280 45% 28%); }
+.material-chip-9  { background: hsl(205 65% 92%); border-color: hsl(205 50% 76%); color: hsl(205 58% 26%); }
+.material-chip-10 { background: hsl(310 50% 93%); border-color: hsl(310 40% 78%); color: hsl(310 45% 28%); }
+.material-chip-11 { background: hsl(45 25% 90%);  border-color: hsl(45 25% 70%);  color: hsl(45 30% 24%); }
+
+.dark .material-chip-0  { background: hsl(215 45% 22%); border-color: hsl(215 45% 38%); color: hsl(215 80% 84%); }
+.dark .material-chip-1  { background: hsl(265 40% 24%); border-color: hsl(265 40% 40%); color: hsl(265 75% 86%); }
+.dark .material-chip-2  { background: hsl(195 40% 20%); border-color: hsl(195 40% 36%); color: hsl(195 75% 82%); }
+.dark .material-chip-3  { background: hsl(330 38% 24%); border-color: hsl(330 38% 40%); color: hsl(330 70% 86%); }
+.dark .material-chip-4  { background: hsl(238 38% 24%); border-color: hsl(238 38% 40%); color: hsl(238 70% 86%); }
+.dark .material-chip-5  { background: hsl(222 32% 22%); border-color: hsl(222 32% 38%); color: hsl(222 60% 84%); }
+.dark .material-chip-6  { background: hsl(295 38% 24%); border-color: hsl(295 38% 40%); color: hsl(295 65% 86%); }
+.dark .material-chip-7  { background: hsl(185 32% 20%); border-color: hsl(185 32% 36%); color: hsl(185 60% 80%); }
+.dark .material-chip-8  { background: hsl(280 34% 24%); border-color: hsl(280 34% 40%); color: hsl(280 60% 86%); }
+.dark .material-chip-9  { background: hsl(205 42% 22%); border-color: hsl(205 42% 38%); color: hsl(205 75% 84%); }
+.dark .material-chip-10 { background: hsl(310 34% 24%); border-color: hsl(310 34% 40%); color: hsl(310 60% 86%); }
+.dark .material-chip-11 { background: hsl(45 18% 22%);  border-color: hsl(45 18% 38%);  color: hsl(45 45% 82%); }

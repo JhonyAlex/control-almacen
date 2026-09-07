@@ -23,6 +23,7 @@ import type {
   AuthenticatedSessionResponse,
   BootstrapStatus,
   Coil,
+  CoilMaterialInput,
   HealthStatus,
   InventorySummary,
   ListInventoryParams,
@@ -1844,6 +1845,79 @@ export const useAddProductionRemnant = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getAddProductionRemnantMutationOptions(options));
+    }
+
+export const getUpdateCoilMaterialUrl = (id: number,) => {
+
+
+
+
+  return `/api/inventory/${id}/material`
+}
+
+/**
+ * Edits coils.material for a single physical coil without altering the order that originally produced it. Only allowed while the coil is DISPONIBLE and not committed to an order through automatic stock assignment.
+ * @summary Update the material of an individual available coil
+ */
+export const updateCoilMaterial = async (id: number,
+    coilMaterialInput: CoilMaterialInput, options?: Parameters<typeof customFetch>[1]): Promise<Coil> => {
+
+  return customFetch<Coil>(getUpdateCoilMaterialUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coilMaterialInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoilMaterialMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoilMaterial>>, TError,{id: number;data: BodyType<CoilMaterialInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoilMaterial>>, TError,{id: number;data: BodyType<CoilMaterialInput>}, TContext> => {
+
+const mutationKey = ['updateCoilMaterial'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoilMaterial>>, {id: number;data: BodyType<CoilMaterialInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCoilMaterial(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoilMaterialMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoilMaterial>>>
+    export type UpdateCoilMaterialMutationBody = BodyType<CoilMaterialInput>
+    export type UpdateCoilMaterialMutationError = ErrorType<void>
+
+    /**
+ * @summary Update the material of an individual available coil
+ */
+export const useUpdateCoilMaterial = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoilMaterial>>, TError,{id: number;data: BodyType<CoilMaterialInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoilMaterial>>,
+        TError,
+        {id: number;data: BodyType<CoilMaterialInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoilMaterialMutationOptions(options));
     }
 
 export const getConsumeInventoryItemUrl = (id: number,) => {

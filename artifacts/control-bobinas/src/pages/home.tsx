@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Check, CirclePlus, Factory, Layers3, Package, PackageCheck, RefreshCw, RotateCcw, Send, TriangleAlert, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CirclePlus, Factory, Layers3, Package, PackageCheck, RefreshCw, RotateCcw, Send, TriangleAlert, ChevronDown, X } from 'lucide-react';
 import {
   CoilStatus,
   CoilTipo,
@@ -16,7 +16,29 @@ import {
   type Coil,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
-import { characteristicsLabel, formatMeters, formatPedidosSummary, groupInventory } from '@/lib/domain';
+import { CoilMaterialEditor } from '@/components/coil-material-editor';
+import { MaterialChip } from '@/components/material-chip';
+import {
+  characteristicsLabel,
+  formatMeters,
+  formatOrdenLabel,
+  formatPedidosSummary,
+  groupInventory,
+  INVENTORY_SORT_FIELDS,
+  sortInventoryGroups,
+  toggleInventorySort,
+  type InventorySortField,
+  type InventorySortState,
+} from '@/lib/domain';
+
+const SORT_FIELD_LABELS: Record<InventorySortField, string> = {
+  ancho: 'Ancho',
+  micras: 'Micras',
+  camisa: 'Camisa',
+  material: 'Material',
+};
+
+const MATERIALES_BASE = ['OPP', 'OPP RECICLADO'];
 
 function LoadingState() {
   return <div className="space-y-3" aria-label="Cargando inventario" data-testid="loading-inventory"><div className="h-24 animate-pulse rounded-xl bg-muted" /><div className="grid gap-3 sm:grid-cols-2"><div className="h-36 animate-pulse rounded-xl bg-muted" /><div className="h-36 animate-pulse rounded-xl bg-muted" /></div></div>;
@@ -39,6 +61,7 @@ function Home({ canManage }: { canManage: boolean }) {
   const [modal, setModal] = useState<'manufactured' | 'remnant' | null>(null);
   const [pendingConsume, setPendingConsume] = useState<Coil | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [sort, setSort] = useState<InventorySortState | null>(null);
 
   const [remnantAncho, setRemnantAncho] = useState<string>('');
   const [remnantMicras, setRemnantMicras] = useState<string>('');
@@ -46,10 +69,24 @@ function Home({ canManage }: { canManage: boolean }) {
   const [remnantMaterial, setRemnantMaterial] = useState<string>('');
 
   const items = inventoryQuery.data?.items ?? [];
-  const groups = useMemo(() => groupInventory(items), [items]);
+  const groups = useMemo(
+    () => sortInventoryGroups(groupInventory(items), sort),
+    [items, sort],
+  );
   const activeOrders = ordersQuery.data ?? [];
   const allOrders = allOrdersQuery.data ?? [];
   const factoryCoils = factoryQuery.data?.items ?? [];
+
+  // Suggestions for the coil material editor: every material already known
+  // (orders + current stock + factory) plus the default catalog. Free text is
+  // still allowed by the datalist.
+  const knownMaterials = useMemo(() => {
+    const set = new Set<string>(MATERIALES_BASE);
+    for (const order of allOrders) set.add(order.material);
+    for (const item of items) set.add(item.material);
+    for (const item of factoryCoils) set.add(item.material);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  }, [allOrders, items, factoryCoils]);
 
   const orderSpecs = useMemo(() => {
     const specs: Array<{ ancho: number; micras: number; camisa: string; material: string }> = [];
@@ -431,28 +468,83 @@ function Home({ canManage }: { canManage: boolean }) {
 
             <section className="mt-10">
               <div className="mb-4 flex items-end justify-between"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Agrupación por características</p><h2 className="mt-1 font-display text-3xl font-semibold uppercase tracking-wide">Bobinas en almacén</h2></div><span className="hidden font-data text-[10px] uppercase tracking-wider text-muted-foreground sm:block">Ancho / micras / camisa / material</span></div>
+              {groups.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-2" data-testid="inventory-sort-bar">
+                  <span className="mr-1 font-data text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">Ordenar por</span>
+                  {INVENTORY_SORT_FIELDS.map((field) => {
+                    const active = sort?.field === field;
+                    const direction = active ? sort?.direction : undefined;
+                    const DirectionIcon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ArrowUpDown;
+                    return (
+                      <button
+                        key={field}
+                        type="button"
+                        onClick={() => setSort((current) => toggleInventorySort(current, field))}
+                        aria-pressed={active}
+                        title={active ? `Ordenando por ${SORT_FIELD_LABELS[field]} (${direction === 'asc' ? 'ascendente' : 'descendente'})` : `Ordenar por ${SORT_FIELD_LABELS[field]}`}
+                        className={`pressable flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition ${active ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+                        data-testid={`button-sort-${field}`}
+                      >
+                        {SORT_FIELD_LABELS[field]}
+                        <DirectionIcon size={13} className={active ? '' : 'opacity-50'} />
+                      </button>
+                    );
+                  })}
+                  {sort && (
+                    <button
+                      type="button"
+                      onClick={() => setSort(null)}
+                      className="pressable flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      title="Volver al orden por metros totales"
+                      data-testid="button-clear-sort"
+                    >
+                      <X size={12} /> Quitar orden
+                    </button>
+                  )}
+                </div>
+              )}
               {groups.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-14 text-center" data-testid="empty-inventory"><PackageCheck className="mx-auto text-muted-foreground" size={30} /><h3 className="mt-3 font-display text-2xl uppercase">Almacén vacío</h3><p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">Añade una bobina fabricada o registra un resto para empezar.</p></div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {groups.map((group) => (
                     <details key={`${group.ancho}-${group.micras}-${group.camisa}-${group.material}`} className="group rounded-xl border border-border bg-card transition open:border-primary/40" data-testid={`card-inventory-group-${group.id}`}>
-                      <summary className="flex min-h-[116px] cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden"><div><span className="font-data text-[10px] font-semibold uppercase tracking-[.12em] text-primary">{group.material}</span><h3 className="mt-2 font-display text-3xl font-semibold leading-none">{group.ancho} <span className="text-base font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">·</span>{group.micras} <span className="text-base font-medium text-muted-foreground">µ</span></h3><p className="mt-2 text-xs text-muted-foreground">Camisa {group.camisa} · {group.count} {group.count === 1 ? 'unidad' : 'unidades'} · {formatMeters(group.total)} m</p></div><ChevronDown size={22} className="shrink-0 text-muted-foreground transition group-open:rotate-180" /></summary>
+                      <summary className="flex min-h-[128px] cursor-pointer list-none items-center justify-between gap-4 p-5 [&::-webkit-details-marker]:hidden">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <MaterialChip material={group.material} size="lg" testId={`text-group-material-${group.id}`} />
+                            <span className="font-display text-[1.55rem] font-semibold uppercase leading-none tracking-wide text-foreground" data-testid={`text-group-camisa-${group.id}`}>Camisa {group.camisa}</span>
+                          </div>
+                          <h3 className="mt-2.5 font-display text-[1.9rem] font-semibold leading-none">{group.ancho} <span className="text-base font-medium text-muted-foreground">mm</span><span className="mx-2 text-muted-foreground/40">·</span>{group.micras} <span className="text-base font-medium text-muted-foreground">µ</span></h3>
+                          <p className="mt-2 text-xs text-muted-foreground">{group.count} {group.count === 1 ? 'unidad' : 'unidades'} · {formatMeters(group.total)} m</p>
+                        </div>
+                        <ChevronDown size={22} className="shrink-0 text-muted-foreground transition group-open:rotate-180" />
+                      </summary>
                       <div className="border-t border-border px-5 pb-4">
                         {group.items.map((item) => {
                           const itemPedidos = item.pedidosRelacionados ?? [];
+                          const isAssignedElsewhere = !!item.asignacion && item.asignacion.ordenId !== item.ordenId;
                           return (
                             <div key={item.id} className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
+                              <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-semibold">
                                     {item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'} <span className="font-data font-normal">{formatMeters(item.metros)} m</span>
                                   </p>
                                   {item.ordenId && (
-                                    <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
-                                      ORD-{String(item.ordenId).padStart(4, '0')}
+                                    <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary" title={isAssignedElsewhere ? 'Orden de origen de la bobina' : undefined}>
+                                      {isAssignedElsewhere ? 'Origen ' : ''}{formatOrdenLabel(item.ordenId)}
                                     </span>
                                   )}
+                                  {isAssignedElsewhere && (
+                                    <span className="rounded bg-accent/20 px-1.5 py-0.5 font-data text-[10px] font-semibold text-accent-foreground" title="Bobina de stock asignada automáticamente a esta orden" data-testid={`badge-assigned-${item.id}`}>
+                                      Asignada a {formatOrdenLabel(item.asignacion!.ordenId)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                  <CoilMaterialEditor coil={item} materials={knownMaterials} canManage={canManage} onSaved={setNotice} />
+                                  <span className="font-data text-xs font-semibold text-foreground">Camisa {item.camisa}</span>
                                 </div>
                                 <p className="mt-1 text-xs text-muted-foreground">Entrada {new Date(item.creadoEn).toLocaleDateString('es-ES')}</p>
                                 {itemPedidos.length > 0 ? (
@@ -516,9 +608,14 @@ function Home({ canManage }: { canManage: boolean }) {
                                 ORD-{String(item.ordenId).padStart(4, '0')}
                               </span>
                             )}
+                            {item.asignacion && item.asignacion.ordenId !== item.ordenId && (
+                              <span className="rounded bg-accent/20 px-1.5 py-0.5 font-data text-[10px] font-semibold text-accent-foreground" title="Bobina de stock asignada automáticamente a esta orden">
+                                Asignada a {formatOrdenLabel(item.asignacion.ordenId)}
+                              </span>
+                            )}
                           </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Camisa {item.camisa} · {item.material}
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            Camisa {item.camisa} · <MaterialChip material={item.material} size="sm" />
                           </p>
                           {itemPedidos.length > 0 ? (
                             <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary">

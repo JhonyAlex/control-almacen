@@ -465,6 +465,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Coil"
+  /inventory/{id}/material:
+    patch:
+      operationId: updateCoilMaterial
+      tags: [inventory]
+      summary: Update the material of an individual available coil
+      description: >
+        Edits coils.material for a single physical coil without altering the
+        order that originally produced it. Only allowed while the coil is
+        DISPONIBLE and not committed to an order through automatic stock
+        assignment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoilMaterialInput"
+      responses:
+        "200":
+          description: Updated coil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+        "403":
+          description: Administrator required
+        "404":
+          description: Coil not found
+        "409":
+          description: Coil is not available or is committed to an order
   /inventory/{id}/consume:
     post:
       operationId: consumeInventoryItem
@@ -853,6 +888,27 @@ components:
           type: string
         metros:
           type: number
+    CoilMaterialInput:
+      type: object
+      required: [material]
+      properties:
+        material:
+          type: string
+          minLength: 1
+          maxLength: 120
+    CoilStockAssignment:
+      type: object
+      required: [ordenId, metros, origen, asignadoEn]
+      properties:
+        ordenId:
+          type: number
+        metros:
+          type: number
+        origen:
+          type: string
+        asignadoEn:
+          type: string
+          format: date-time
     Coil:
       allOf:
         - type: object
@@ -869,6 +925,10 @@ components:
               $ref: "#/components/schemas/CoilStatus"
             ordenId:
               type: ["number", "null"]
+            asignacion:
+              anyOf:
+                - $ref: "#/components/schemas/CoilStockAssignment"
+                - type: "null"
             pedidosRelacionados:
               type: array
               items:

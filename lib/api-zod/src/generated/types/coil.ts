@@ -7,6 +7,7 @@
  */
 import type { CoilCharacteristics } from './coilCharacteristics';
 import type { CoilStatus } from './coilStatus';
+import type { CoilStockAssignment } from './coilStockAssignment';
 import type { CoilTipo } from './coilTipo';
 import type { RelatedPedido } from './relatedPedido';
 
@@ -17,6 +18,7 @@ export type Coil = CoilCharacteristics & ({
   estado: CoilStatus;
   /** @nullable */
   ordenId?: number | null;
+  asignacion?: CoilStockAssignment | null;
   pedidosRelacionados?: RelatedPedido[];
   creadoEn: Date;
 });

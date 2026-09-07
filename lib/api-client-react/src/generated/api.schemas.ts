@@ -223,6 +223,21 @@ export interface RemnantInput {
   metros: number;
 }
 
+export interface CoilMaterialInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  material: string;
+}
+
+export interface CoilStockAssignment {
+  ordenId: number;
+  metros: number;
+  origen: string;
+  asignadoEn: string;
+}
+
 export type CoilTipo = typeof CoilTipo[keyof typeof CoilTipo];
 
 
@@ -238,6 +253,7 @@ export type Coil = CoilCharacteristics & ({
   estado: CoilStatus;
   /** @nullable */
   ordenId?: number | null;
+  asignacion?: CoilStockAssignment | null;
   pedidosRelacionados?: RelatedPedido[];
   creadoEn: string;
 });

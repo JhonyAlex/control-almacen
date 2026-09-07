@@ -1,6 +1,7 @@
 import { Package, PackageOpen, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useListInventory, type Coil } from '@workspace/api-client-react';
-import { characteristicsLabel, formatDate, formatMeters, formatPedidosSummary } from '@/lib/domain';
+import { formatDate, formatMeters, formatOrdenLabel, formatPedidosSummary } from '@/lib/domain';
+import { MaterialChip } from '@/components/material-chip';
 
 function Material() {
   const inventory = useListInventory();
@@ -22,14 +23,21 @@ function Material() {
 
 function MaterialRow({ item }: { item: Coil }) {
   const itemPedidos = item.pedidosRelacionados ?? [];
+  const isAssignedElsewhere = !!item.asignacion && item.asignacion.ordenId !== item.ordenId;
   return (
     <div className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[1.5fr_.6fr_.65fr_1fr] md:items-center md:gap-5 md:px-6">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-semibold">{characteristicsLabel(item)}</p>
+          <p className="font-semibold">{item.ancho} mm · {item.micras} µ · Camisa {item.camisa} ·</p>
+          <MaterialChip material={item.material} size="md" />
           {item.ordenId && (
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary">
-              ORD-{String(item.ordenId).padStart(4, '0')}
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary" title={isAssignedElsewhere ? 'Orden de origen de la bobina' : undefined}>
+              {isAssignedElsewhere ? 'Origen ' : ''}{formatOrdenLabel(item.ordenId)}
+            </span>
+          )}
+          {isAssignedElsewhere && (
+            <span className="rounded bg-accent/20 px-1.5 py-0.5 font-data text-[10px] font-semibold text-accent-foreground" title="Bobina de stock asignada automáticamente a esta orden">
+              Asignada a {formatOrdenLabel(item.asignacion!.ordenId)}
             </span>
           )}
         </div>

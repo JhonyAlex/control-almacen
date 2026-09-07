@@ -7,6 +7,8 @@ import {
   CreateOrderBody,
   SetOrderBlockedBody,
   SetOrderBlockedParams,
+  UpdateCoilMaterialBody,
+  UpdateCoilMaterialParams,
   UpdateOrderBody,
   UpdateOrderParams,
   DeleteOrderParams,
@@ -21,6 +23,7 @@ import {
 import { db } from "@workspace/db";
 import {
   coils,
+  productionOrderCoilAssignments,
   productionOrders,
   productionOrderPedidos,
 } from "@workspace/db/schema";
@@ -30,6 +33,12 @@ import {
   normalizeCamisa,
   normalizeMaterialComparison,
 } from "../lib/nexus-order-normalizer";
+import {
+  autoAssignStockToOrder,
+  computeOrderCoveredMeters,
+  getAssignmentsByCoilIds,
+  toAssignmentInfo,
+} from "../services/coil-stock-assignment";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -60,6 +69,7 @@ interface RelatedPedidoView {
 const coilView = (
   coil: typeof coils.$inferSelect,
   pedidosRelacionados: RelatedPedidoView[] = [],
+  asignacion: ReturnType<typeof toAssignmentInfo> | null = null,
 ) => ({
   id: coil.id,
   tipo: coil.tipo,
@@ -70,9 +80,46 @@ const coilView = (
   material: coil.material,
   estado: coil.estado,
   ordenId: coil.ordenId,
+  asignacion,
   pedidosRelacionados,
   creadoEn: coil.creadoEn.toISOString(),
 });
+
+/**
+ * Builds the coil views for a set of coils, resolving the stock assignment of
+ * each coil and the pedidos of the order each coil currently serves (the
+ * assigned order when committed, otherwise its manufacturing order).
+ */
+async function buildCoilViews(
+  items: Array<typeof coils.$inferSelect>,
+  pedidosOverrideOrderId?: number,
+): Promise<ReturnType<typeof coilView>[]> {
+  const assignmentsMap = await getAssignmentsByCoilIds(
+    db,
+    items.map((item) => item.id),
+  );
+  const effectiveOrderIds = items.map(
+    (item) => assignmentsMap.get(item.id)?.ordenId ?? item.ordenId,
+  );
+  const pedidosMap = pedidosOverrideOrderId
+    ? await getPedidosByOrderIds([pedidosOverrideOrderId])
+    : await getPedidosByOrderIds(
+        effectiveOrderIds.filter((id): id is number => id !== null),
+      );
+  return items.map((item) => {
+    const assignment = assignmentsMap.get(item.id);
+    const effectiveOrderId =
+      pedidosOverrideOrderId ??
+      assignment?.ordenId ??
+      item.ordenId ??
+      undefined;
+    return coilView(
+      item,
+      effectiveOrderId ? (pedidosMap.get(effectiveOrderId) ?? []) : [],
+      assignment ? toAssignmentInfo(assignment) : null,
+    );
+  });
+}
 
 async function getPedidosByOrderIds(orderIds: number[]) {
   const validIds = Array.from(
@@ -140,17 +187,39 @@ async function ordersWithTotals(status?: string) {
     .select()
     .from(productionOrders)
     .orderBy(asc(productionOrders.orden), desc(productionOrders.id));
-  const totals = await db
+
+  // Covered meters per order: coils manufactured for the order that are not
+  // committed elsewhere, plus pre-existing stock coils assigned to it.
+  const directTotals = await db
     .select({
       ordenId: coils.ordenId,
       total: sql<string>`coalesce(sum(${coils.metros}), 0)`,
     })
     .from(coils)
-    .where(sql`${coils.ordenId} is not null`)
+    .where(
+      sql`${coils.ordenId} is not null and not exists (
+        select 1 from ${productionOrderCoilAssignments}
+        where ${productionOrderCoilAssignments.coilId} = ${coils.id}
+      )`,
+    )
     .groupBy(coils.ordenId);
-  const byOrder = new Map(
-    totals.map((row) => [row.ordenId, numeric(row.total)]),
-  );
+  const assignedTotals = await db
+    .select({
+      ordenId: productionOrderCoilAssignments.ordenId,
+      total: sql<string>`coalesce(sum(${productionOrderCoilAssignments.metros}), 0)`,
+    })
+    .from(productionOrderCoilAssignments)
+    .groupBy(productionOrderCoilAssignments.ordenId);
+  const byOrder = new Map<number, number>();
+  for (const row of directTotals) {
+    if (row.ordenId !== null) byOrder.set(row.ordenId, numeric(row.total));
+  }
+  for (const row of assignedTotals) {
+    byOrder.set(
+      row.ordenId,
+      (byOrder.get(row.ordenId) ?? 0) + numeric(row.total),
+    );
+  }
 
   // Batch query related pedidos to prevent N+1 queries
   const allRelated = await db
@@ -201,7 +270,7 @@ router.post("/orders", requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: "Características no válidas" });
       return;
     }
-    const order = await db.transaction(async (tx) => {
+    const { order, covered } = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(481929)`);
       const [created] = await tx
         .insert(productionOrders)
@@ -216,9 +285,23 @@ router.post("/orders", requireAdmin, async (req, res, next) => {
           orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders}), 0) - 1`,
         })
         .returning();
-      return created;
+      // Use compatible stock coils before assuming anything must be produced.
+      await autoAssignStockToOrder(
+        tx,
+        {
+          orderId: created.id,
+          ancho: created.ancho,
+          micras: created.micras,
+          material: created.material,
+          camisa: created.camisa,
+          metrosNecesarios: created.metrosNecesarios,
+        },
+        "AUTO_STOCK",
+      );
+      const covered = await computeOrderCoveredMeters(tx, created.id);
+      return { order: created, covered };
     });
-    res.status(201).json(orderView(order, 0, []));
+    res.status(201).json(orderView(order, covered, []));
   } catch (error) {
     next(error);
   }
@@ -311,28 +394,42 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: "Solo se pueden editar órdenes activas" });
       return;
     }
-    const [{ total }] = await db
-      .select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` })
-      .from(coils)
-      .where(eq(coils.ordenId, id));
-    if (numeric(total) > Number(body.metrosNecesarios)) {
+    const coveredBefore = await computeOrderCoveredMeters(db, id);
+    if (coveredBefore > Number(body.metrosNecesarios)) {
       res.status(400).json({
         error:
-          "Los metros necesarios no pueden ser inferiores a los ya fabricados",
+          "Los metros necesarios no pueden ser inferiores a los ya cubiertos",
       });
       return;
     }
-    const [updated] = await db
-      .update(productionOrders)
-      .set({
-        ancho: String(body.ancho),
-        micras: String(body.micras),
-        camisa: String(body.camisa),
-        material: body.material,
-        metrosNecesarios: String(body.metrosNecesarios),
-      })
-      .where(eq(productionOrders.id, id))
-      .returning();
+    const { updated, covered } = await db.transaction(async (tx) => {
+      const [updatedOrder] = await tx
+        .update(productionOrders)
+        .set({
+          ancho: String(body.ancho),
+          micras: String(body.micras),
+          camisa: String(body.camisa),
+          material: body.material,
+          metrosNecesarios: String(body.metrosNecesarios),
+        })
+        .where(eq(productionOrders.id, id))
+        .returning();
+      // An enlarged order can consume additional compatible stock.
+      await autoAssignStockToOrder(
+        tx,
+        {
+          orderId: updatedOrder.id,
+          ancho: updatedOrder.ancho,
+          micras: updatedOrder.micras,
+          material: updatedOrder.material,
+          camisa: updatedOrder.camisa,
+          metrosNecesarios: updatedOrder.metrosNecesarios,
+        },
+        "AUTO_STOCK",
+      );
+      const coveredNow = await computeOrderCoveredMeters(tx, id);
+      return { updated: updatedOrder, covered: coveredNow };
+    });
 
     const related = await db
       .select()
@@ -343,7 +440,7 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
     res.json(
       orderView(
         updated,
-        numeric(total),
+        covered,
         related.map((r) => ({
           id: r.id,
           pedidoId: r.pedidoId,
@@ -370,13 +467,10 @@ router.patch("/orders/:id/blocked", requireAdmin, async (req, res, next) => {
         .for("update");
       if (!current) return { kind: "MISSING" as const };
 
-      const [{ total }] = await tx
-        .select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` })
-        .from(coils)
-        .where(eq(coils.ordenId, id));
+      const total = await computeOrderCoveredMeters(tx, id);
       if (
         current.estado === "FINALIZADA" ||
-        numeric(total) >= numeric(current.metrosNecesarios)
+        total >= numeric(current.metrosNecesarios)
       ) {
         return { kind: "FINALIZED" as const };
       }
@@ -493,12 +587,9 @@ router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
         return { kind: "NOT_BLOCKED" as const };
       }
 
-      const [{ total }] = await tx
-        .select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` })
-        .from(coils)
-        .where(eq(coils.ordenId, id));
+      const total = await computeOrderCoveredMeters(tx, id);
 
-      const fabricados = numeric(total);
+      const fabricados = total;
       const necesarios = numeric(current.metrosNecesarios);
       const faltantes = Math.max(0, necesarios - fabricados);
       const faltantesStr = new Intl.NumberFormat("es-ES", {
@@ -567,14 +658,25 @@ router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
 router.get("/orders/:id/coils", async (req, res, next) => {
   try {
     const { id } = ListOrderCoilsParams.parse({ id: Number(req.params.id) });
+    // Coils manufactured for the order (and not committed elsewhere) plus
+    // pre-existing stock coils assigned to the order.
     const items = await db
       .select()
       .from(coils)
-      .where(eq(coils.ordenId, id))
+      .where(
+        sql`(${coils.ordenId} = ${id} and not exists (
+          select 1 from ${productionOrderCoilAssignments} assignment
+          where assignment.coil_id = ${coils.id}
+        )) or (
+          exists (
+            select 1 from ${productionOrderCoilAssignments} assignment
+            where assignment.coil_id = ${coils.id} and assignment.orden_id = ${id}
+          )
+        )`,
+      )
       .orderBy(asc(coils.id));
-    const pedidosMap = await getPedidosByOrderIds([id]);
-    const related = pedidosMap.get(id) ?? [];
-    res.json(items.map((item) => coilView(item, related)));
+    const views = await buildCoilViews(items, id);
+    res.json(views);
   } catch (error) {
     next(error);
   }
@@ -589,22 +691,12 @@ router.get("/inventory", async (req, res, next) => {
       .from(coils)
       .where(eq(coils.estado, targetStatus))
       .orderBy(asc(coils.id));
-    const orderIds = items
-      .map((i) => i.ordenId)
-      .filter((id): id is number => id !== null);
-    const pedidosMap = await getPedidosByOrderIds(orderIds);
-    res.json({
-      totalMetros: items.reduce(
-        (total, item) => total + numeric(item.metros),
-        0,
-      ),
-      items: items.map((item) =>
-        coilView(
-          item,
-          item.ordenId ? (pedidosMap.get(item.ordenId) ?? []) : [],
-        ),
-      ),
-    });
+    const views = await buildCoilViews(items);
+    const totalMetros = items.reduce(
+      (total, item) => total + numeric(item.metros),
+      0,
+    );
+    res.json({ totalMetros, items: views });
   } catch (error) {
     next(error);
   }
@@ -634,11 +726,8 @@ router.post("/inventory/coils", async (req, res, next) => {
           ordenId: order.id,
         })
         .returning();
-      const [{ total }] = await tx
-        .select({ total: sql<string>`coalesce(sum(${coils.metros}), 0)` })
-        .from(coils)
-        .where(eq(coils.ordenId, order.id));
-      if (numeric(total) >= numeric(order.metrosNecesarios)) {
+      const covered = await computeOrderCoveredMeters(tx, order.id);
+      if (covered >= numeric(order.metrosNecesarios)) {
         await tx
           .update(productionOrders)
           .set({ estado: "FINALIZADA", finalizadaEn: new Date() })
@@ -737,6 +826,79 @@ router.post("/inventory/:id/restore", async (req, res, next) => {
       related = pedidosMap.get(updated.ordenId) ?? [];
     }
     res.json(coilView(updated, related));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Edits the material of one individual physical coil. Never touches the
+// characteristics of the order that originally produced the coil, and never
+// modifies sibling coils of the same group.
+router.patch("/inventory/:id/material", requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = UpdateCoilMaterialParams.parse({
+      id: Number(req.params.id),
+    });
+    const body = UpdateCoilMaterialBody.parse(req.body);
+    const material = body.material.trim();
+    if (material.length === 0) {
+      res.status(400).json({ error: "El material no puede estar vacío" });
+      return;
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [coil] = await tx
+        .select()
+        .from(coils)
+        .where(eq(coils.id, id))
+        .for("update");
+      if (!coil) return { kind: "MISSING" as const };
+      if (coil.estado !== "DISPONIBLE") {
+        return { kind: "NOT_AVAILABLE" as const, coil };
+      }
+      const [assignment] = await tx
+        .select()
+        .from(productionOrderCoilAssignments)
+        .where(eq(productionOrderCoilAssignments.coilId, id));
+      if (assignment) {
+        return { kind: "ASSIGNED" as const, coil, assignment };
+      }
+      const [edited] = await tx
+        .update(coils)
+        .set({ material })
+        .where(eq(coils.id, id))
+        .returning();
+      return { kind: "UPDATED" as const, coil: edited };
+    });
+
+    if (updated.kind === "MISSING") {
+      res.status(404).json({ error: "La bobina no existe" });
+      return;
+    }
+    if (updated.kind === "NOT_AVAILABLE") {
+      res.status(409).json({
+        error:
+          "Solo se puede editar el material de bobinas disponibles en almacén",
+        code: "COIL_NOT_AVAILABLE",
+      });
+      return;
+    }
+    if (updated.kind === "ASSIGNED") {
+      res.status(409).json({
+        error: `La bobina está asignada a la orden ORD-${String(
+          updated.assignment.ordenId,
+        ).padStart(4, "0")} y su material no se puede modificar`,
+        code: "COIL_ASSIGNED_TO_ORDER",
+      });
+      return;
+    }
+
+    let related: RelatedPedidoView[] = [];
+    if (updated.coil.ordenId) {
+      const pedidosMap = await getPedidosByOrderIds([updated.coil.ordenId]);
+      related = pedidosMap.get(updated.coil.ordenId) ?? [];
+    }
+    res.json(coilView(updated.coil, related));
   } catch (error) {
     next(error);
   }
