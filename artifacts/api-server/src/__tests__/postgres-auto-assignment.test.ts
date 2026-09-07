@@ -180,6 +180,7 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
     assert.equal(body.metrosFabricados, 6000);
     assert.equal(body.metrosPendientes, 0);
     assert.equal(body.estado, "FINALIZADA");
+    assert.ok(body.finalizadaEn, "finalizadaEn refleja la finalización automática");
 
     const assignments = await assignmentsOf(body.id);
     assert.equal(assignments.length, 1);

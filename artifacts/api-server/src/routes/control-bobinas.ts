@@ -298,8 +298,13 @@ router.post("/orders", requireAdmin, async (req, res, next) => {
         },
         "AUTO_STOCK",
       );
+      // Re-read: the assignment may have finalized the order in this same tx.
+      const [fresh] = await tx
+        .select()
+        .from(productionOrders)
+        .where(eq(productionOrders.id, created.id));
       const covered = await computeOrderCoveredMeters(tx, created.id);
-      return { order: created, covered };
+      return { order: fresh, covered };
     });
     res.status(201).json(orderView(order, covered, []));
   } catch (error) {
@@ -427,8 +432,13 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
         },
         "AUTO_STOCK",
       );
+      // Re-read: the assignment may have finalized the order in this same tx.
+      const [fresh] = await tx
+        .select()
+        .from(productionOrders)
+        .where(eq(productionOrders.id, id));
       const coveredNow = await computeOrderCoveredMeters(tx, id);
-      return { updated: updatedOrder, covered: coveredNow };
+      return { updated: fresh, covered: coveredNow };
     });
 
     const related = await db
