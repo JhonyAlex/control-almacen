@@ -21,6 +21,17 @@ function OrderSkeleton() {
   return <div className="space-y-3" aria-label="Cargando órdenes" data-testid="loading-orders"><div className="h-44 animate-pulse rounded-xl bg-muted" /><div className="h-44 animate-pulse rounded-xl bg-muted" /></div>;
 }
 
+// Surfaces the API's error message (e.g. ORDER_CHARACTERISTICS_LOCKED) when
+// the server explains why the save failed; falls back to a generic text.
+const serverErrorMessage = (error: unknown): string | null => {
+  const data = (error as { data?: unknown } | null)?.data;
+  if (data && typeof data === 'object' && 'error' in data) {
+    const message = (data as { error?: unknown }).error;
+    if (typeof message === 'string' && message.length > 0) return message;
+  }
+  return null;
+};
+
 function Production({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient();
   const ordersQuery = useListOrders({ status: OrderStatus.ACTIVA });
@@ -169,7 +180,7 @@ function Production({ canManage }: { canManage: boolean }) {
 
       <Modal open={createOpen || !!editTarget} onClose={() => { setCreateOpen(false); setEditTarget(null); }} onSubmit={onCreate} eyebrow={editTarget ? "Edición de producción" : "Plan de fabricación"} title={editTarget ? "Editar orden" : "Nueva orden"} submitLabel={createOrder.isPending || updateOrder.isPending ? 'Guardando…' : editTarget ? 'Guardar cambios' : 'Crear orden'} submitDisabled={createOrder.isPending || updateOrder.isPending}>
         {editTarget && <p className="mb-4 rounded-lg border border-accent/40 bg-accent/15 px-3 py-3 text-sm font-medium text-accent-foreground" role="alert">Advertencia: estás editando una orden de producción. Los metros ya fabricados se conservarán.</p>}
-        {(createOrder.isError || updateOrder.isError) && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-create-order">No se pudo guardar la orden. Revisa los datos.</p>}
+        {(createOrder.isError || updateOrder.isError) && <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert" data-testid="error-create-order">{(updateOrder.isError && serverErrorMessage(updateOrder.error)) ?? 'No se pudo guardar la orden. Revisa los datos.'}</p>}
         <div className="grid gap-5 sm:grid-cols-2"><Field label="Ancho" hint="mm"><input name="ancho" type="number" min="1" required className={inputClass} defaultValue={editTarget?.ancho ?? ''} placeholder="Ej. 1250" data-testid="input-order-width" /></Field><Field label="Micras"><input name="micras" type="number" min="1" required className={inputClass} defaultValue={editTarget?.micras ?? ''} placeholder="Ej. 23" data-testid="input-order-microns" /></Field><Field label="Camisa"><select name="camisa" required className={inputClass} defaultValue={editTarget?.camisa ?? ""} data-testid="select-order-sleeve"><option value="" disabled>Selecciona</option>{CAMISAS.map((camisa) => <option key={camisa} value={camisa}>{camisa}</option>)}</select></Field><Field label="Material"><select name="material" required className={inputClass} defaultValue={editTarget?.material ?? ""} data-testid="select-order-material"><option value="" disabled>Selecciona</option>{MATERIALES.map((material) => <option key={material} value={material}>{material}</option>)}</select></Field><div className="sm:col-span-2"><Field label="Metros necesarios" hint="cantidad positiva"><input name="metrosNecesarios" type="number" min="1" step="1" required className={inputClass} defaultValue={editTarget?.metrosNecesarios ?? ''} placeholder="Ej. 12.500" data-testid="input-order-meters" /></Field></div></div>
       </Modal>
 

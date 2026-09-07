@@ -48,13 +48,17 @@ const EMPTY_RESULT: AutoAssignStockResult = {
 // - pre-existing stock coils assigned to the order
 //   (`production_order_coil_assignments.ordenId`).
 // Each coil is therefore counted at most once, never for two orders.
+// The correlated subqueries use explicit aliases: drizzle renders column
+// chunks inside select-field sql templates unqualified, so a bare
+// `${coils.id}` inside `not exists` would resolve against the inner table
+// instead of the outer `coils` row.
 const unassignedCoilsForOrder = (orderId: number | ReturnType<typeof sql>) =>
   sql`coalesce((
-    select sum(${coils.metros}) from ${coils}
-    where ${coils.ordenId} = ${orderId}
+    select sum(c.metros) from ${coils} c
+    where c.orden_id = ${orderId}
       and not exists (
-        select 1 from ${productionOrderCoilAssignments}
-        where ${productionOrderCoilAssignments.coilId} = ${coils.id}
+        select 1 from ${productionOrderCoilAssignments} a
+        where a.coil_id = c.id
       )
   ), 0)`;
 

@@ -58,6 +58,12 @@ const MATERIALES = new Set(["OPP", "OPP RECICLADO"]);
 
 const numeric = (value: string | number | null) => Number(value ?? 0);
 
+// Numeric comparison under the same normalization the system stores with
+// ("1200" and "1200.00" are the same width), so re-sending identical values
+// in an equivalent format is never treated as a change.
+const numbersEquivalent = (a: string | number, b: string | number) =>
+  Math.abs(Number(a) - Number(b)) < 1e-6;
+
 interface RelatedPedidoView {
   id: number;
   pedidoId: string;
@@ -379,35 +385,41 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
       res.status(400).json({ error: "Características no válidas" });
       return;
     }
-    const [current] = await db
-      .select()
-      .from(productionOrders)
-      .where(eq(productionOrders.id, id));
-    if (!current) {
-      res.status(404).json({ error: "La orden no existe" });
-      return;
-    }
-    if (current.origen === "GESTION_PEDIDOS") {
-      res.status(409).json({
-        error:
-          "Las órdenes creadas por Gestión Pedidos no se pueden editar manualmente",
-        code: "AUTOMATIC_ORDER_NOT_EDITABLE",
-      });
-      return;
-    }
-    if (current.estado !== "ACTIVA") {
-      res.status(400).json({ error: "Solo se pueden editar órdenes activas" });
-      return;
-    }
-    const coveredBefore = await computeOrderCoveredMeters(db, id);
-    if (coveredBefore > Number(body.metrosNecesarios)) {
-      res.status(400).json({
-        error:
-          "Los metros necesarios no pueden ser inferiores a los ya cubiertos",
-      });
-      return;
-    }
-    const { updated, covered } = await db.transaction(async (tx) => {
+    // Everything below runs in a single transaction: the row lock is held
+    // until commit, so a concurrent registration of material for this order
+    // (Bobina fabricada, NEXUS, another edit) serializes before or after it.
+    // There is no validate-then-write window in which new coverage could
+    // invalidate the decision taken.
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(productionOrders)
+        .where(eq(productionOrders.id, id))
+        .for("update");
+      if (!current) return { kind: "MISSING" as const };
+      if (current.origen === "GESTION_PEDIDOS") {
+        return { kind: "AUTOMATIC" as const };
+      }
+      if (current.estado !== "ACTIVA") {
+        return { kind: "NOT_ACTIVE" as const };
+      }
+      const covered = await computeOrderCoveredMeters(tx, id);
+
+      // Once material is physically registered or assigned, the technical
+      // characteristics are frozen; only meters may still be adjusted.
+      const characteristicsChanged =
+        !numbersEquivalent(current.ancho, body.ancho) ||
+        !numbersEquivalent(current.micras, body.micras) ||
+        normalizeCamisa(current.camisa) !== normalizeCamisa(body.camisa) ||
+        normalizeMaterialComparison(current.material) !==
+          normalizeMaterialComparison(body.material);
+      if (covered > 0 && characteristicsChanged) {
+        return { kind: "CHARACTERISTICS_LOCKED" as const };
+      }
+      if (covered > Number(body.metrosNecesarios)) {
+        return { kind: "METERS_BELOW_COVERAGE" as const };
+      }
+
       const [updatedOrder] = await tx
         .update(productionOrders)
         .set({
@@ -437,29 +449,59 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
         .select()
         .from(productionOrders)
         .where(eq(productionOrders.id, id));
+      const related = await tx
+        .select()
+        .from(productionOrderPedidos)
+        .where(eq(productionOrderPedidos.ordenId, id))
+        .orderBy(asc(productionOrderPedidos.vinculadoEn));
       const coveredNow = await computeOrderCoveredMeters(tx, id);
-      return { updated: fresh, covered: coveredNow };
-    });
-
-    const related = await db
-      .select()
-      .from(productionOrderPedidos)
-      .where(eq(productionOrderPedidos.ordenId, id))
-      .orderBy(asc(productionOrderPedidos.vinculadoEn));
-
-    res.json(
-      orderView(
-        updated,
-        covered,
-        related.map((r) => ({
+      return {
+        kind: "UPDATED" as const,
+        order: fresh,
+        covered: coveredNow,
+        pedidos: related.map((r) => ({
           id: r.id,
           pedidoId: r.pedidoId,
           numeroPedidoCliente: r.numeroPedidoCliente,
           metros: numeric(r.metros),
           vinculadoEn: r.vinculadoEn.toISOString(),
         })),
-      ),
-    );
+      };
+    });
+
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+    if (result.kind === "AUTOMATIC") {
+      res.status(409).json({
+        error:
+          "Las órdenes creadas por Gestión Pedidos no se pueden editar manualmente",
+        code: "AUTOMATIC_ORDER_NOT_EDITABLE",
+      });
+      return;
+    }
+    if (result.kind === "NOT_ACTIVE") {
+      res.status(400).json({ error: "Solo se pueden editar órdenes activas" });
+      return;
+    }
+    if (result.kind === "CHARACTERISTICS_LOCKED") {
+      res.status(409).json({
+        error:
+          "No se pueden modificar las características de una orden que ya tiene material registrado o asignado.",
+        code: "ORDER_CHARACTERISTICS_LOCKED",
+      });
+      return;
+    }
+    if (result.kind === "METERS_BELOW_COVERAGE") {
+      res.status(400).json({
+        error:
+          "Los metros necesarios no pueden ser inferiores a los ya cubiertos",
+      });
+      return;
+    }
+
+    res.json(orderView(result.order, result.covered, result.pedidos));
   } catch (error) {
     next(error);
   }
