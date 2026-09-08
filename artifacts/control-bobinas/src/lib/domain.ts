@@ -60,7 +60,7 @@ export const groupInventory = (items: Coil[]): InventoryGroup[] => {
 // Ordenación de grupos de bobinas
 // ---------------------------------------------------------------------------
 
-export type InventorySortField = 'ancho' | 'micras' | 'camisa' | 'material';
+export type InventorySortField = 'ancho' | 'micras' | 'camisa' | 'material' | 'metros';
 export type SortDirection = 'asc' | 'desc';
 
 export interface InventorySortState {
@@ -73,7 +73,58 @@ export const INVENTORY_SORT_FIELDS: InventorySortField[] = [
   'micras',
   'camisa',
   'material',
+  'metros',
 ];
+
+export const INVENTORY_SORT_PREFERENCE_KEY = 'control-bobinas.inventory-sort';
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+const isInventorySortState = (value: unknown): value is InventorySortState => {
+  if (!value || typeof value !== 'object') return false;
+  const { field, direction } = value as Record<string, unknown>;
+  return INVENTORY_SORT_FIELDS.includes(field as InventorySortField)
+    && (direction === 'asc' || direction === 'desc');
+};
+
+const getBrowserStorage = (): StorageLike | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+/** Reads the sort choice saved for this browser; invalid or unavailable storage is ignored. */
+export const readInventorySortPreference = (storage: StorageLike | null = getBrowserStorage()): InventorySortState | null => {
+  if (!storage) return null;
+  try {
+    const serialized = storage.getItem(INVENTORY_SORT_PREFERENCE_KEY);
+    if (!serialized) return null;
+    const parsed: unknown = JSON.parse(serialized);
+    return isInventorySortState(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Saves the sort choice locally, independently of the signed-in user. */
+export const saveInventorySortPreference = (
+  sort: InventorySortState | null,
+  storage: StorageLike | null = getBrowserStorage(),
+): void => {
+  if (!storage) return;
+  try {
+    if (!sort) {
+      storage.removeItem(INVENTORY_SORT_PREFERENCE_KEY);
+      return;
+    }
+    storage.setItem(INVENTORY_SORT_PREFERENCE_KEY, JSON.stringify(sort));
+  } catch {
+    // Storage can be disabled by the browser; sorting still works for this session.
+  }
+};
 
 /** Natural compare: embedded numbers compare numerically ("475" < "22-6-22"? no: 22 < 400 → "22-6-22" before "400"). */
 export const camisaNaturalCompare = (a: string, b: string) =>
@@ -98,7 +149,8 @@ export const compareGroups = (
   if (field === 'ancho') primary = a.ancho - b.ancho;
   else if (field === 'micras') primary = a.micras - b.micras;
   else if (field === 'camisa') primary = camisaNaturalCompare(String(a.camisa), String(b.camisa));
-  else primary = materialAlphabeticalCompare(a.material, b.material);
+  else if (field === 'material') primary = materialAlphabeticalCompare(a.material, b.material);
+  else primary = a.total - b.total;
   if (primary !== 0) return sign * primary;
 
   // Tie-break chain: total meters desc, then characteristics asc.

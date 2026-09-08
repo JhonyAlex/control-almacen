@@ -25,6 +25,8 @@ import {
   formatPedidosSummary,
   groupInventory,
   INVENTORY_SORT_FIELDS,
+  readInventorySortPreference,
+  saveInventorySortPreference,
   sortInventoryGroups,
   toggleInventorySort,
   type InventorySortField,
@@ -36,6 +38,7 @@ const SORT_FIELD_LABELS: Record<InventorySortField, string> = {
   micras: 'Micras',
   camisa: 'Camisa',
   material: 'Material',
+  metros: 'Metros',
 };
 
 const MATERIALES_BASE = ['OPP', 'OPP RECICLADO'];
@@ -61,7 +64,7 @@ function Home({ canManage }: { canManage: boolean }) {
   const [modal, setModal] = useState<'manufactured' | 'remnant' | null>(null);
   const [pendingConsume, setPendingConsume] = useState<Coil | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [sort, setSort] = useState<InventorySortState | null>(null);
+  const [sort, setSort] = useState<InventorySortState | null>(readInventorySortPreference);
 
   const [remnantAncho, setRemnantAncho] = useState<string>('');
   const [remnantMicras, setRemnantMicras] = useState<string>('');
@@ -373,6 +376,19 @@ function Home({ canManage }: { canManage: boolean }) {
     inventoryQuery.refetch();
     factoryQuery.refetch();
   };
+
+  const handleSort = (field: InventorySortField) => {
+    setSort((current) => {
+      const next = toggleInventorySort(current, field);
+      saveInventorySortPreference(next);
+      return next;
+    });
+  };
+
+  const clearSort = () => {
+    setSort(null);
+    saveInventorySortPreference(null);
+  };
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) });
@@ -479,7 +495,7 @@ function Home({ canManage }: { canManage: boolean }) {
                       <button
                         key={field}
                         type="button"
-                        onClick={() => setSort((current) => toggleInventorySort(current, field))}
+                        onClick={() => handleSort(field)}
                         aria-pressed={active}
                         title={active ? `Ordenando por ${SORT_FIELD_LABELS[field]} (${direction === 'asc' ? 'ascendente' : 'descendente'})` : `Ordenar por ${SORT_FIELD_LABELS[field]}`}
                         className={`pressable flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition ${active ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground'}`}
@@ -493,7 +509,7 @@ function Home({ canManage }: { canManage: boolean }) {
                   {sort && (
                     <button
                       type="button"
-                      onClick={() => setSort(null)}
+                      onClick={clearSort}
                       className="pressable flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                       title="Volver al orden por metros totales"
                       data-testid="button-clear-sort"

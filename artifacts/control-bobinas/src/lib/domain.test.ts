@@ -7,6 +7,9 @@ import {
   groupInventory,
   materialAlphabeticalCompare,
   MATERIAL_PALETTE_SIZE,
+  INVENTORY_SORT_PREFERENCE_KEY,
+  readInventorySortPreference,
+  saveInventorySortPreference,
   sortInventoryGroups,
   toggleInventorySort,
   type InventoryGroup,
@@ -114,6 +117,13 @@ describe('ordenación de grupos', () => {
     expect(desc.map((g) => g.material)).toEqual(['OPP RECICLADO', 'opp reciclado', 'OPP']);
   });
 
+  it('metros asc y desc por el total agrupado', () => {
+    const asc = sortInventoryGroups(groups, { field: 'metros', direction: 'asc' });
+    expect(asc.map((g) => g.total)).toEqual([100, 200, 300]);
+    const desc = sortInventoryGroups(groups, { field: 'metros', direction: 'desc' });
+    expect(desc.map((g) => g.total)).toEqual([300, 200, 100]);
+  });
+
   it('empates se resuelven con la cadena de desempate (orden estable y predecible)', () => {
     const tied = [
       group({ id: 1, ancho: 1200, micras: 30, camisa: 400, material: 'OPP', total: 500 }),
@@ -129,6 +139,31 @@ describe('ordenación de grupos', () => {
     // Mismo ancho: el desempate (total desc) ordena b antes que a en ambas direcciones
     expect(compareGroups(a, b, 'ancho', 'asc')).toBeGreaterThan(0);
     expect(compareGroups(a, b, 'ancho', 'desc')).toBeGreaterThan(0);
+  });
+});
+
+describe('preferencia de orden de inventario', () => {
+  const stored = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => stored.set(key, value),
+    removeItem: (key: string) => stored.delete(key),
+  };
+
+  it('guarda y recupera el criterio elegido del navegador', () => {
+    saveInventorySortPreference({ field: 'metros', direction: 'asc' }, storage);
+    expect(readInventorySortPreference(storage)).toEqual({ field: 'metros', direction: 'asc' });
+  });
+
+  it('ignora datos persistidos no válidos', () => {
+    stored.set(INVENTORY_SORT_PREFERENCE_KEY, JSON.stringify({ field: 'desconocido', direction: 'asc' }));
+    expect(readInventorySortPreference(storage)).toBeNull();
+  });
+
+  it('eliminar el criterio borra la preferencia guardada', () => {
+    saveInventorySortPreference({ field: 'ancho', direction: 'desc' }, storage);
+    saveInventorySortPreference(null, storage);
+    expect(stored.has(INVENTORY_SORT_PREFERENCE_KEY)).toBe(false);
   });
 });
 
