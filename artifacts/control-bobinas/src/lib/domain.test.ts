@@ -10,6 +10,7 @@ import {
   INVENTORY_SORT_PREFERENCE_KEY,
   readInventorySortPreference,
   saveInventorySortPreference,
+  sortFactoryCoils,
   sortInventoryGroups,
   toggleInventorySort,
   type InventoryGroup,
@@ -213,5 +214,66 @@ describe('color de material determinista', () => {
     const materials = ['OPP', 'OPP RECICLADO', 'PET', 'LDPE', 'PEAD', 'PP', 'PA', 'EVOH'];
     const indexes = new Set(materials.map(getMaterialColorIndex));
     expect(indexes.size).toBeGreaterThan(1);
+  });
+});
+
+describe('sortFactoryCoils', () => {
+  it('la bobina enviada a fábrica más recientemente siempre queda arriba, de primero', () => {
+    const coilsList: Coil[] = [
+      coil({ id: 1, movidoAFabricaEn: '2026-09-09T08:00:00.000Z' }),
+      coil({ id: 2, movidoAFabricaEn: '2026-09-09T10:30:00.000Z' }),
+      coil({ id: 3, movidoAFabricaEn: '2026-09-09T09:15:00.000Z' }),
+    ];
+
+    const sorted = sortFactoryCoils(coilsList);
+    expect(sorted[0].id).toBe(2); // más reciente a las 10:30
+    expect(sorted[1].id).toBe(3); // a las 09:15
+    expect(sorted[2].id).toBe(1); // más antigua a las 08:00
+  });
+
+  it('guarda solo las últimas 25 bobinas y descarta las más viejas', () => {
+    const coilsList: Coil[] = Array.from({ length: 35 }, (_, i) => {
+      const minute = String(i + 1).padStart(2, '0');
+      return coil({
+        id: i + 1,
+        movidoAFabricaEn: `2026-09-09T10:${minute}:00.000Z`,
+      });
+    });
+
+    const sorted = sortFactoryCoils(coilsList, 25);
+    expect(sorted).toHaveLength(25);
+    // La más reciente es la 35 (10:35)
+    expect(sorted[0].id).toBe(35);
+    // La 25ª es la 11 (10:11)
+    expect(sorted[24].id).toBe(11);
+    // Las más viejas (1 a 10) ya no están
+    const ids = sorted.map((c) => c.id);
+    expect(ids).not.toContain(1);
+    expect(ids).not.toContain(10);
+  });
+
+  it('si no tienen movidoAFabricaEn, desempata por ID descendente', () => {
+    const coilsList: Coil[] = [
+      coil({ id: 10, movidoAFabricaEn: null }),
+      coil({ id: 45, movidoAFabricaEn: null }),
+      coil({ id: 22, movidoAFabricaEn: null }),
+    ];
+
+    const sorted = sortFactoryCoils(coilsList);
+    expect(sorted[0].id).toBe(45);
+    expect(sorted[1].id).toBe(22);
+    expect(sorted[2].id).toBe(10);
+  });
+
+  it('desempata por ID desc si dos bobinas tienen exactamente la misma marca de tiempo', () => {
+    const sameTime = '2026-09-09T11:00:00.000Z';
+    const coilsList: Coil[] = [
+      coil({ id: 5, movidoAFabricaEn: sameTime }),
+      coil({ id: 9, movidoAFabricaEn: sameTime }),
+    ];
+
+    const sorted = sortFactoryCoils(coilsList);
+    expect(sorted[0].id).toBe(9);
+    expect(sorted[1].id).toBe(5);
   });
 });

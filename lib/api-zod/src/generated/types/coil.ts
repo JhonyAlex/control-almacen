@@ -21,4 +21,6 @@ export type Coil = CoilCharacteristics & ({
   asignacion?: CoilStockAssignment | null;
   pedidosRelacionados?: RelatedPedido[];
   creadoEn: Date;
+  /** @nullable */
+  movidoAFabricaEn?: Date | null;
 });

@@ -936,6 +936,9 @@ components:
             creadoEn:
               type: string
               format: date-time
+            movidoAFabricaEn:
+              type: ["string", "null"]
+              format: date-time
         - $ref: "#/components/schemas/CoilCharacteristics"
     InventorySummary:
       type: object

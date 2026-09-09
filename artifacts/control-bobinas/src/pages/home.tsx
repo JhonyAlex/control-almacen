@@ -20,6 +20,7 @@ import { CoilMaterialEditor } from '@/components/coil-material-editor';
 import { MaterialChip } from '@/components/material-chip';
 import {
   characteristicsLabel,
+  formatDate,
   formatMeters,
   formatOrdenLabel,
   formatPedidosSummary,
@@ -27,6 +28,7 @@ import {
   INVENTORY_SORT_FIELDS,
   readInventorySortPreference,
   saveInventorySortPreference,
+  sortFactoryCoils,
   sortInventoryGroups,
   toggleInventorySort,
   type InventorySortField,
@@ -78,7 +80,10 @@ function Home({ canManage }: { canManage: boolean }) {
   );
   const activeOrders = ordersQuery.data ?? [];
   const allOrders = allOrdersQuery.data ?? [];
-  const factoryCoils = factoryQuery.data?.items ?? [];
+  const factoryCoils = useMemo(
+    () => sortFactoryCoils(factoryQuery.data?.items ?? []),
+    [factoryQuery.data?.items],
+  );
 
   // Suggestions for the coil material editor: every material already known
   // (orders + current stock + factory) plus the default catalog. Free text is
@@ -648,10 +653,17 @@ function Home({ canManage }: { canManage: boolean }) {
                         <p className="font-data text-lg font-semibold">
                           {formatMeters(item.metros)} <span className="text-xs font-normal text-muted-foreground">m</span>
                         </p>
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                          {item.estado}
-                        </span>
+                        <div>
+                          <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                            {item.estado}
+                          </span>
+                          {item.movidoAFabricaEn && (
+                            <p className="mt-0.5 font-data text-[10px] text-muted-foreground" title="Fecha y hora de envío a fábrica">
+                              {formatDate(item.movidoAFabricaEn)}
+                            </p>
+                          )}
+                        </div>
                         <div className="flex md:justify-end">
                           <button
                             type="button"

@@ -43,6 +43,13 @@
       "when": 1788779305218,
       "tag": "0005_coil_stock_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788947082876,
+      "tag": "0006_factory_coils_ordering_limit",
+      "breakpoints": true
     }
   ]
 }

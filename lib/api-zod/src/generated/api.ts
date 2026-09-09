@@ -454,7 +454,8 @@ export const ListOrderCoilsResponseItem = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -492,7 +493,8 @@ export const ListInventoryResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -534,7 +536,8 @@ export const AddManufacturedCoilResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -573,7 +576,8 @@ export const AddProductionRemnantResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -617,7 +621,8 @@ export const UpdateCoilMaterialResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -652,7 +657,8 @@ export const ConsumeInventoryItemResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),
@@ -687,7 +693,8 @@ export const RestoreInventoryItemResponse = zod.object({
   "metros": zod.number(),
   "vinculadoEn": zod.coerce.date()
 })).optional(),
-  "creadoEn": zod.coerce.date()
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
 }).and(zod.object({
   "ancho": zod.number(),
   "micras": zod.number(),

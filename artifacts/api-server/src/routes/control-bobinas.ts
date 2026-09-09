@@ -89,6 +89,9 @@ const coilView = (
   asignacion,
   pedidosRelacionados,
   creadoEn: coil.creadoEn.toISOString(),
+  movidoAFabricaEn: coil.movidoAFabricaEn
+    ? coil.movidoAFabricaEn.toISOString()
+    : null,
 });
 
 /**
@@ -738,11 +741,17 @@ router.get("/inventory", async (req, res, next) => {
   try {
     const query = ListInventoryQueryParams.parse(req.query);
     const targetStatus = query.status ?? "DISPONIBLE";
-    const items = await db
+    const isFactory = targetStatus === "EN FÁBRICA";
+    const baseQuery = db
       .select()
       .from(coils)
       .where(eq(coils.estado, targetStatus))
-      .orderBy(asc(coils.id));
+      .orderBy(
+        ...(isFactory
+          ? [sql`${coils.movidoAFabricaEn} DESC NULLS LAST`, desc(coils.id)]
+          : [asc(coils.id)]),
+      );
+    const items = isFactory ? await baseQuery.limit(25) : await baseQuery;
     const views = await buildCoilViews(items);
     const totalMetros = items.reduce(
       (total, item) => total + numeric(item.metros),
@@ -838,11 +847,37 @@ router.post("/inventory/:id/consume", async (req, res, next) => {
     const { id } = ConsumeInventoryItemParams.parse({
       id: Number(req.params.id),
     });
-    const [updated] = await db
-      .update(coils)
-      .set({ estado: "EN FÁBRICA" })
-      .where(and(eq(coils.id, id), eq(coils.estado, "DISPONIBLE")))
-      .returning();
+    const now = new Date();
+    const updated = await db.transaction(async (tx) => {
+      const [coil] = await tx
+        .update(coils)
+        .set({
+          estado: "EN FÁBRICA",
+          movidoAFabricaEn: now,
+        })
+        .where(and(eq(coils.id, id), eq(coils.estado, "DISPONIBLE")))
+        .returning();
+
+      if (!coil) {
+        return null;
+      }
+
+      // Guardar solo las 25 últimas bobinas de esa lista, eliminando automáticamente las más viejas
+      const excessFactoryCoils = await tx
+        .select({ id: coils.id })
+        .from(coils)
+        .where(eq(coils.estado, "EN FÁBRICA"))
+        .orderBy(sql`${coils.movidoAFabricaEn} DESC NULLS LAST`, desc(coils.id))
+        .offset(25);
+
+      if (excessFactoryCoils.length > 0) {
+        const idsToDelete = excessFactoryCoils.map((c) => c.id);
+        await tx.delete(coils).where(inArray(coils.id, idsToDelete));
+      }
+
+      return coil;
+    });
+
     if (!updated) {
       res.status(404).json({ error: "La bobina ya no está disponible" });
       return;
@@ -865,7 +900,10 @@ router.post("/inventory/:id/restore", async (req, res, next) => {
     });
     const [updated] = await db
       .update(coils)
-      .set({ estado: "DISPONIBLE" })
+      .set({
+        estado: "DISPONIBLE",
+        movidoAFabricaEn: null,
+      })
       .where(and(eq(coils.id, id), eq(coils.estado, "EN FÁBRICA")))
       .returning();
     if (!updated) {

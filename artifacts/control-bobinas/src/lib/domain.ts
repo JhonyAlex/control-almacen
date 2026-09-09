@@ -206,3 +206,18 @@ export const getMaterialColorClass = (material: string): string =>
 
 export const parseCamisa = (value: string): Camisa =>
   /^\d+$/.test(value) ? Number(value) as Camisa : value as Camisa;
+
+/**
+ * Ordena las bobinas movidas a fábrica para que la más reciente siempre esté arriba (en primer lugar),
+ * usando `movidoAFabricaEn` (o `id` como desempate/fallback), y conservando un máximo de 25 bobinas.
+ */
+export const sortFactoryCoils = (coils: Coil[], limit = 25): Coil[] => {
+  return [...coils]
+    .sort((a, b) => {
+      const timeA = a.movidoAFabricaEn ? new Date(a.movidoAFabricaEn).getTime() : 0;
+      const timeB = b.movidoAFabricaEn ? new Date(b.movidoAFabricaEn).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return b.id - a.id;
+    })
+    .slice(0, limit);
+};

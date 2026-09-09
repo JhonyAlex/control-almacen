@@ -85,6 +85,7 @@ export const coils = pgTable(
     creadoEn: timestamp("creado_en", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    movidoAFabricaEn: timestamp("movido_a_fabrica_en", { withTimezone: true }),
   },
   (table) => [
     // Speeds up stock candidate lookups for automatic assignments, which
@@ -93,6 +94,10 @@ export const coils = pgTable(
       table.estado,
       table.ancho,
       table.micras,
+    ),
+    index("coils_en_fabrica_idx").on(
+      table.estado,
+      table.movidoAFabricaEn,
     ),
   ],
 );

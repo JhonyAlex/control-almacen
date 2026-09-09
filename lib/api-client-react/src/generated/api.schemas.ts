@@ -256,6 +256,8 @@ export type Coil = CoilCharacteristics & ({
   asignacion?: CoilStockAssignment | null;
   pedidosRelacionados?: RelatedPedido[];
   creadoEn: string;
+  /** @nullable */
+  movidoAFabricaEn?: string | null;
 });
 
 export interface InventorySummary {
