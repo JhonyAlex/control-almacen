@@ -16,9 +16,10 @@ import {
   type Coil,
 } from '@workspace/api-client-react';
 import { Field, inputClass, Modal } from '@/components/modal';
-import { CoilMaterialEditor } from '@/components/coil-material-editor';
+import { CoilCamisaEditor, CoilMaterialEditor, CoilMetersEditor } from '@/components/coil-material-editor';
 import { MaterialChip } from '@/components/material-chip';
 import {
+  CAMISAS,
   characteristicsLabel,
   formatDate,
   formatMeters,
@@ -94,6 +95,17 @@ function Home({ canManage }: { canManage: boolean }) {
     for (const item of items) set.add(item.material);
     for (const item of factoryCoils) set.add(item.material);
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  }, [allOrders, items, factoryCoils]);
+
+  // Suggestions for the coil camisa editor: catalog CAMISAS + all orders + current stock + factory.
+  // Free text/numbers are still allowed by the datalist without restriction.
+  const knownCamisas = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of CAMISAS) set.add(String(c));
+    for (const order of allOrders) if (order.camisa) set.add(String(order.camisa));
+    for (const item of items) if (item.camisa) set.add(String(item.camisa));
+    for (const item of factoryCoils) if (item.camisa) set.add(String(item.camisa));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }));
   }, [allOrders, items, factoryCoils]);
 
   const orderSpecs = useMemo(() => {
@@ -549,9 +561,10 @@ function Home({ canManage }: { canManage: boolean }) {
                             <div key={item.id} className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-semibold">
-                                    {item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'} <span className="font-data font-normal">{formatMeters(item.metros)} m</span>
-                                  </p>
+                                  <span className="font-semibold">
+                                    {item.tipo === CoilTipo.RESTO ? 'RESTO' : 'Bobina'}
+                                  </span>
+                                  <CoilMetersEditor coil={item} canManage={canManage} onSaved={setNotice} />
                                   {item.ordenId && (
                                     <span className="rounded bg-primary/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-primary" title={isAssignedElsewhere ? 'Orden de origen de la bobina' : undefined}>
                                       {isAssignedElsewhere ? 'Origen ' : ''}{formatOrdenLabel(item.ordenId)}
@@ -565,7 +578,7 @@ function Home({ canManage }: { canManage: boolean }) {
                                 </div>
                                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                   <CoilMaterialEditor coil={item} materials={knownMaterials} canManage={canManage} onSaved={setNotice} />
-                                  <span className="font-data text-xs font-semibold text-foreground">Camisa {item.camisa}</span>
+                                  <CoilCamisaEditor coil={item} camisas={knownCamisas} canManage={canManage} onSaved={setNotice} />
                                 </div>
                                 <p className="mt-1 text-xs text-muted-foreground">Entrada {new Date(item.creadoEn).toLocaleDateString('es-ES')}</p>
                                 {itemPedidos.length > 0 ? (

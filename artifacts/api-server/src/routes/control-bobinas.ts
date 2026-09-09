@@ -7,6 +7,8 @@ import {
   CreateOrderBody,
   SetOrderBlockedBody,
   SetOrderBlockedParams,
+  UpdateCoilBody,
+  UpdateCoilParams,
   UpdateCoilMaterialBody,
   UpdateCoilMaterialParams,
   UpdateOrderBody,
@@ -921,10 +923,116 @@ router.post("/inventory/:id/restore", async (req, res, next) => {
   }
 });
 
+// Edits fields (metros, material, camisa) of one individual physical coil in warehouse.
+// Never touches characteristics of the order that originally produced the coil.
+router.patch("/inventory/:id", requireAuth, async (req, res, next) => {
+  try {
+    const { id } = UpdateCoilParams.parse({
+      id: Number(req.params.id),
+    });
+    const body = UpdateCoilBody.parse(req.body);
+
+    const updateFields: {
+      material?: string;
+      metros?: string;
+      camisa?: string;
+    } = {};
+
+    if (body.material !== undefined) {
+      const material = body.material.trim();
+      if (material.length === 0) {
+        res.status(400).json({ error: "El material no puede estar vacío" });
+        return;
+      }
+      updateFields.material = material;
+    }
+
+    if (body.camisa !== undefined) {
+      const camisa = String(body.camisa).trim();
+      if (camisa.length === 0) {
+        res.status(400).json({ error: "La camisa no puede estar vacía" });
+        return;
+      }
+      updateFields.camisa = camisa;
+    }
+
+    if (body.metros !== undefined) {
+      const metros = Number(body.metros);
+      if (Number.isNaN(metros) || metros <= 0) {
+        res
+          .status(400)
+          .json({ error: "Los metros deben ser un número mayor a cero" });
+        return;
+      }
+      updateFields.metros = String(metros);
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      res.status(400).json({ error: "No se enviaron campos para actualizar" });
+      return;
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [coil] = await tx
+        .select()
+        .from(coils)
+        .where(eq(coils.id, id))
+        .for("update");
+      if (!coil) return { kind: "MISSING" as const };
+      if (coil.estado !== "DISPONIBLE") {
+        return { kind: "NOT_AVAILABLE" as const, coil };
+      }
+      const [assignment] = await tx
+        .select()
+        .from(productionOrderCoilAssignments)
+        .where(eq(productionOrderCoilAssignments.coilId, id));
+      if (assignment) {
+        return { kind: "ASSIGNED" as const, coil, assignment };
+      }
+      const [edited] = await tx
+        .update(coils)
+        .set(updateFields)
+        .where(eq(coils.id, id))
+        .returning();
+      return { kind: "UPDATED" as const, coil: edited };
+    });
+
+    if (updated.kind === "MISSING") {
+      res.status(404).json({ error: "La bobina no existe" });
+      return;
+    }
+    if (updated.kind === "NOT_AVAILABLE") {
+      res.status(409).json({
+        error: "Solo se pueden editar bobinas disponibles en almacén",
+        code: "COIL_NOT_AVAILABLE",
+      });
+      return;
+    }
+    if (updated.kind === "ASSIGNED") {
+      res.status(409).json({
+        error: `La bobina está asignada a la orden ORD-${String(
+          updated.assignment.ordenId,
+        ).padStart(4, "0")}. No se puede editar mientras esté comprometida.`,
+        code: "COIL_COMMITTED_TO_ORDER",
+      });
+      return;
+    }
+
+    let related: RelatedPedidoView[] = [];
+    if (updated.coil.ordenId) {
+      const pedidosMap = await getPedidosByOrderIds([updated.coil.ordenId]);
+      related = pedidosMap.get(updated.coil.ordenId) ?? [];
+    }
+    res.json(coilView(updated.coil, related));
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Edits the material of one individual physical coil. Never touches the
 // characteristics of the order that originally produced the coil, and never
 // modifies sibling coils of the same group.
-router.patch("/inventory/:id/material", requireAdmin, async (req, res, next) => {
+router.patch("/inventory/:id/material", requireAuth, async (req, res, next) => {
   try {
     const { id } = UpdateCoilMaterialParams.parse({
       id: Number(req.params.id),

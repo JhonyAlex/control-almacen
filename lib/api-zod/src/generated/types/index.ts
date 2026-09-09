@@ -36,6 +36,7 @@ export * from './productionOrder';
 export * from './relatedPedido';
 export * from './remnantInput';
 export * from './sessionResponse';
+export * from './updateCoilInput';
 export * from './user';
 export * from './userCredentialsInput';
 export * from './userRole';

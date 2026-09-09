@@ -231,6 +231,21 @@ export interface CoilMaterialInput {
   material: string;
 }
 
+export interface UpdateCoilInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  material?: string;
+  /** @minimum 1 */
+  metros?: number;
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  camisa?: string;
+}
+
 export interface CoilStockAssignment {
   ordenId: number;
   metros: number;

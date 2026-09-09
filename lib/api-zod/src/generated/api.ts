@@ -587,6 +587,56 @@ export const AddProductionRemnantResponse = zod.object({
 
 
 /**
+ * Edits fields for a single physical coil without altering the order that originally produced it. Only allowed while the coil is DISPONIBLE and not committed to an order.
+ * @summary Update editable fields (material, metros, camisa) of an individual available coil
+ */
+export const UpdateCoilParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateCoilBodyMaterialMax = 120;
+
+
+export const updateCoilBodyCamisaMax = 60;
+
+
+
+export const UpdateCoilBody = zod.object({
+  "material": zod.string().min(1).max(updateCoilBodyMaterialMax).optional(),
+  "metros": zod.number().min(1).optional(),
+  "camisa": zod.string().min(1).max(updateCoilBodyCamisaMax).optional()
+})
+
+export const UpdateCoilResponse = zod.object({
+  "id": zod.number(),
+  "tipo": zod.enum(['BOBINA', 'RESTO']),
+  "metros": zod.number(),
+  "estado": zod.enum(['DISPONIBLE', 'EN FÁBRICA']),
+  "ordenId": zod.number().nullish(),
+  "asignacion": zod.union([zod.object({
+  "ordenId": zod.number(),
+  "metros": zod.number(),
+  "origen": zod.string(),
+  "asignadoEn": zod.coerce.date()
+}),zod.null()]).optional(),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})).optional(),
+  "creadoEn": zod.coerce.date(),
+  "movidoAFabricaEn": zod.coerce.date().nullish()
+}).and(zod.object({
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.union([zod.literal(400),zod.literal(475),zod.literal(520),zod.literal('22-6-22'),zod.literal('21-8-21'),zod.literal('40-6-40'),zod.literal('40-8-40'),zod.literal('47-5-47'),zod.literal('47-8-47'),zod.literal('52-8-52')]),
+  "material": zod.enum(['OPP', 'OPP RECICLADO'])
+}))
+
+
+/**
  * Edits coils.material for a single physical coil without altering the order that originally produced it. Only allowed while the coil is DISPONIBLE and not committed to an order through automatic stock assignment.
  * @summary Update the material of an individual available coil
  */

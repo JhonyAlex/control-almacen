@@ -465,6 +465,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Coil"
+  /inventory/{id}:
+    patch:
+      operationId: updateCoil
+      tags: [inventory]
+      summary: Update editable fields (material, metros, camisa) of an individual available coil
+      description: >
+        Edits fields for a single physical coil without altering the
+        order that originally produced it. Only allowed while the coil is
+        DISPONIBLE and not committed to an order.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCoilInput"
+      responses:
+        "200":
+          description: Updated coil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coil"
+        "400":
+          description: Invalid data
+        "404":
+          description: Coil not found
+        "409":
+          description: Coil is not available or is committed to an order
   /inventory/{id}/material:
     patch:
       operationId: updateCoilMaterial
@@ -896,6 +930,20 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+    UpdateCoilInput:
+      type: object
+      properties:
+        material:
+          type: string
+          minLength: 1
+          maxLength: 120
+        metros:
+          type: number
+          minimum: 1
+        camisa:
+          type: string
+          minLength: 1
+          maxLength: 60
     CoilStockAssignment:
       type: object
       required: [ordenId, metros, origen, asignadoEn]
