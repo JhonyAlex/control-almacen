@@ -127,8 +127,7 @@ export const exportProductionOrdersPDF = (
     'Camisa',
     'Material',
     'Pedidos agrupados',
-    'Metros Nec.',
-    'Metros Fab.',
+    'Metros pendientes',
     'Hecho',
     'Creada',
   ];
@@ -142,8 +141,7 @@ export const exportProductionOrdersPDF = (
     String(order.camisa),
     order.material,
     formatPedidosAgrupados(order),
-    `${formatMeters(order.metrosNecesarios)} m`,
-    `${formatMeters(order.metrosFabricados)} m`,
+    `${formatMeters(order.metrosPendientes)} m`,
     '', // Hecho: casilla cuadrada dibujada en didDrawCell
     formatDateDDMMYYYY(order.creadoEn),
   ]);
@@ -184,15 +182,14 @@ export const exportProductionOrdersPDF = (
       4: { cellWidth: 25, fontSize: 6.5 },                   // Micras (25 µ)
       5: { cellWidth: 32, fontSize: 6.2 },                   // Camisa (47-8-47)
       6: { cellWidth: 46, fontSize: 6 },                     // Material (LDPE TTE / OPP TTE)
-      7: { cellWidth: 125, halign: 'left', fontSize: 6 },    // Pedidos agrupados
-      8: { cellWidth: 41, halign: 'right', fontSize: 6.5 },  // Metros Nec.
-      9: { cellWidth: 35, halign: 'right', fontSize: 6.5 },  // Metros Fab.
-      10: { cellWidth: 24 },                                 // Hecho (checkbox)
-      11: { cellWidth: 38, fontSize: 6 },                    // Creada (01/09/2026)
+      7: { cellWidth: 141, halign: 'left', fontSize: 6 },    // Pedidos agrupados
+      8: { cellWidth: 60, halign: 'right', fontSize: 6.5 },  // Metros pendientes
+      9: { cellWidth: 24 },                                  // Hecho (checkbox)
+      10: { cellWidth: 38, fontSize: 6 },                    // Creada (01/09/2026)
     },
     didParseCell: (data) => {
       // Ajustar tamaño del encabezado de "Hecho" para asegurar que nunca se divida
-      if (data.section === 'head' && data.column.index === 10) {
+      if (data.section === 'head' && data.column.index === 9) {
         data.cell.styles.fontSize = 5.5;
       }
 
@@ -231,7 +228,7 @@ export const exportProductionOrdersPDF = (
     },
     didDrawCell: (data) => {
       // Dibujar checkbox cuadrado limpio en la columna "Hecho"
-      if (data.section === 'body' && data.column.index === 10) {
+      if (data.section === 'body' && data.column.index === 9) {
         const { x, y, width, height } = data.cell;
         const boxSize = 8;
         const boxX = x + (width - boxSize) / 2;
