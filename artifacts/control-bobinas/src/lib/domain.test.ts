@@ -276,4 +276,20 @@ describe('sortFactoryCoils', () => {
     expect(sorted[0].id).toBe(9);
     expect(sorted[1].id).toBe(5);
   });
+
+  it('si una bobina se devuelve a almacén y se vuelve a enviar a fábrica, su nueva fecha la sitúa arriba de primero', () => {
+    const coilA = coil({ id: 1, movidoAFabricaEn: '2026-09-09T09:00:00.000Z' });
+    const coilB = coil({ id: 2, movidoAFabricaEn: '2026-09-09T10:00:00.000Z' });
+
+    // Antes de devolver: B (10:00) está de primera, A (09:00) de segunda
+    expect(sortFactoryCoils([coilA, coilB])[0].id).toBe(2);
+
+    // Se devuelve A y se re-envía a las 11:00 (nueva fecha registrada)
+    const coilAResent = coil({ id: 1, movidoAFabricaEn: '2026-09-09T11:00:00.000Z' });
+
+    // Con la nueva fecha, A queda de primero
+    const sorted = sortFactoryCoils([coilAResent, coilB]);
+    expect(sorted[0].id).toBe(1);
+    expect(sorted[1].id).toBe(2);
+  });
 });
