@@ -202,6 +202,73 @@ describe("Validación Integral contra PostgreSQL y Express Reales", () => {
     assert.equal(relRes.rows.length, 2);
   });
 
+  it("6C2. Crear o agrupar prioriza la orden activa sin mover ni tomar como referencia las bloqueadas", async () => {
+    const blocked = await pool.query(`
+      INSERT INTO production_orders
+        (ancho, micras, camisa, material, metros_necesarios, estado, origen, orden)
+      VALUES ('900.00', '20.00', '300', 'PE', '1000.00', 'BLOQUEADA', 'MANUAL', -100)
+      RETURNING id, orden
+    `);
+    const sendNexus = async (payload: Record<string, unknown>) => {
+      const response = await fetch(`${baseUrl}/api/integrations/gestion-pedidos/nexus-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${TEST_TOKEN}` },
+        body: JSON.stringify(payload),
+      });
+      return { response, body: (await response.json()) as any };
+    };
+    const payloadA = {
+      eventId: "c1000000-0000-4000-8000-000000000001",
+      pedidoId: "PED-PRIORITY-A1",
+      numeroPedidoCliente: "PRIORITY-A1",
+      metros: 1000,
+      bobinaMadre: 1200,
+      camisa: "400",
+      tipoMaterial: "OPP",
+      micras: 30,
+    };
+
+    const orderA = await sendNexus(payloadA);
+    const orderB = await sendNexus({
+      ...payloadA,
+      eventId: "c2000000-0000-4000-8000-000000000002",
+      pedidoId: "PED-PRIORITY-B1",
+      numeroPedidoCliente: "PRIORITY-B1",
+      bobinaMadre: 1300,
+    });
+    assert.equal(orderA.response.status, 201);
+    assert.equal(orderB.response.status, 201);
+
+    const beforeGrouping = await pool.query(
+      `SELECT id, orden FROM production_orders ORDER BY id`,
+    );
+    assert.equal(beforeGrouping.rows.find((row) => row.id === orderA.body.orderId).orden, -1);
+    assert.equal(beforeGrouping.rows.find((row) => row.id === orderB.body.orderId).orden, -2);
+    assert.equal(beforeGrouping.rows.find((row) => row.id === blocked.rows[0].id).orden, -100);
+
+    const grouped = await sendNexus({
+      ...payloadA,
+      eventId: "c3000000-0000-4000-8000-000000000003",
+      pedidoId: "PED-PRIORITY-A2",
+      numeroPedidoCliente: "PRIORITY-A2",
+    });
+    assert.equal(grouped.response.status, 200);
+    assert.equal(grouped.body.action, "ORDER_UPDATED");
+
+    const activeOrders = await pool.query(
+      `SELECT id FROM production_orders WHERE estado = 'ACTIVA' ORDER BY orden ASC, id DESC`,
+    );
+    assert.deepEqual(
+      activeOrders.rows.map((order) => order.id),
+      [orderA.body.orderId, orderB.body.orderId],
+    );
+    const blockedAfter = await pool.query(
+      `SELECT orden FROM production_orders WHERE id = $1`,
+      [blocked.rows[0].id],
+    );
+    assert.equal(blockedAfter.rows[0].orden, -100);
+  });
+
   it("6D. UNIQUE(event_id) en PostgreSQL: Impide físicamente duplicar event_id", async () => {
     // Insert order directly
     const oRes = await pool.query(`

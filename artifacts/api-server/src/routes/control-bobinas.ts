@@ -293,7 +293,7 @@ router.post("/orders", requireAdmin, async (req, res, next) => {
           metrosNecesarios: String(body.metrosNecesarios),
           estado: "ACTIVA",
           origen: "MANUAL",
-          orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders}), 0) - 1`,
+          orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders} where ${productionOrders.estado} = 'ACTIVA'), 0) - 1`,
         })
         .returning();
       // Use compatible stock coils before assuming anything must be produced.

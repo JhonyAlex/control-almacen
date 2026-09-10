@@ -160,9 +160,15 @@ router.post(
             .from(productionOrderPedidos)
             .where(eq(productionOrderPedidos.ordenId, compatibleOrder.id));
 
+          // A newly grouped active order becomes the next production priority.
+          // Blocked/finalized rows must neither move nor influence that priority.
+          await tx.execute(sql`select pg_advisory_xact_lock(481929)`);
           await tx
             .update(productionOrders)
-            .set({ metrosNecesarios: total })
+            .set({
+              metrosNecesarios: total,
+              orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders} where ${productionOrders.estado} = 'ACTIVA'), 0) - 1`,
+            })
             .where(eq(productionOrders.id, compatibleOrder.id));
 
           // The enlarged order may consume additional compatible stock; only
@@ -204,7 +210,7 @@ router.post(
             metrosNecesarios: String(payload.metros),
             estado: "ACTIVA",
             origen: "GESTION_PEDIDOS",
-            orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders}), 0) - 1`,
+            orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders} where ${productionOrders.estado} = 'ACTIVA'), 0) - 1`,
           })
           .returning();
 
