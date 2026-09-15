@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { ProductionOrder } from '@workspace/api-client-react';
+import { OrderStatus, type ProductionOrder } from '@workspace/api-client-react';
 import { formatMeters } from '../lib/domain';
 
 const PDF_TABLE_WIDTH = 525;
@@ -66,15 +66,12 @@ const buildPdfFooter = (
 };
 
 /**
- * Genera el documento PDF con el listado de órdenes activas y bloqueadas de producción
+ * Genera el documento PDF con el listado de órdenes activas de producción
  * y lo abre de inmediato en una nueva pestaña del navegador para impresión/visualización.
  */
-export const exportProductionOrdersPDF = (
-  activeOrders: ProductionOrder[],
-  blockedOrders: ProductionOrder[] = []
-) => {
-  const allOrders = [...(blockedOrders ?? []), ...(activeOrders ?? [])];
-  if (allOrders.length === 0) {
+export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
+  const activeOrders = (orders ?? []).filter((order) => order.estado !== OrderStatus.BLOQUEADA);
+  if (activeOrders.length === 0) {
     return;
   }
 
@@ -98,16 +95,11 @@ export const exportProductionOrdersPDF = (
   doc.setTextColor(100, 100, 100);
   doc.text('Órdenes de producción', tableHorizontalMargin, 42);
 
-  // Sub-subtítulo informativo detallando el conteo de bloqueadas y activas
+  // Sub-subtítulo informativo detallando el conteo de órdenes activas
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  const totalCount = allOrders.length;
-  let subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden' : 'órdenes'}`;
-  if (blockedOrders.length > 0 && activeOrders.length > 0) {
-    subtitleDetail = `${totalCount} órdenes: ${blockedOrders.length} bloqueadas, ${activeOrders.length} activas`;
-  } else if (blockedOrders.length > 0) {
-    subtitleDetail = `${blockedOrders.length} órdenes bloqueadas`;
-  }
+  const totalCount = activeOrders.length;
+  const subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden activa' : 'órdenes activas'}`;
   doc.text(`Módulo 02 · Control de Fabricación (${subtitleDetail})`, tableHorizontalMargin, 54);
 
   // Fecha actual en la esquina superior derecha alineada con el margen de la tabla
@@ -132,7 +124,7 @@ export const exportProductionOrdersPDF = (
     'Creada',
   ];
 
-  const tableRows = allOrders.map((order) => [
+  const tableRows = activeOrders.map((order) => [
     `ORD-${String(order.id).padStart(4, '0')}`,
     order.estado,
     order.origen === 'GESTION_PEDIDOS' ? 'Nexus' : 'Manual',
@@ -194,7 +186,7 @@ export const exportProductionOrdersPDF = (
       }
 
       if (data.section === 'body') {
-        const order = allOrders[data.row.index];
+        const order = activeOrders[data.row.index];
 
         // Filas alternas para activas
         if (data.row.index % 2 === 1) {
@@ -202,19 +194,11 @@ export const exportProductionOrdersPDF = (
         }
 
         if (order) {
-          // Si la orden está bloqueada, aplicar fondo sutil distintivo en la fila
-          if (order.estado === 'BLOQUEADA') {
-            data.cell.styles.fillColor = data.row.index % 2 === 1 ? [254, 243, 199] : [255, 251, 235]; // amber-100 / amber-50
-          }
-
           // Color y tamaño exacto de estado
           if (data.column.index === 1) {
             data.cell.styles.fontSize = 5.8;
             if (order.estado === 'ACTIVA') {
               data.cell.styles.textColor = [39, 97, 61]; // verde
-              data.cell.styles.fontStyle = 'bold';
-            } else if (order.estado === 'BLOQUEADA') {
-              data.cell.styles.textColor = [180, 83, 9]; // amber-700
               data.cell.styles.fontStyle = 'bold';
             }
           }

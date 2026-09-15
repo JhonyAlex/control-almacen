@@ -60,8 +60,8 @@ type TableOptions = {
   didDrawCell: (data: { section: string; column: { index: number }; cell: { x: number; y: number; width: number; height: number } }) => void;
 };
 
-const renderPdf = (activeOrders: ProductionOrder[], blockedOrders: ProductionOrder[] = []) => {
-  exportProductionOrdersPDF(activeOrders, blockedOrders);
+const renderPdf = (orders: ProductionOrder[]) => {
+  exportProductionOrdersPDF(orders);
   expect(autoTableMock).toHaveBeenCalledTimes(1);
   const [doc, options] = autoTableMock.mock.calls[0] as [Record<string, unknown>, TableOptions];
   return { doc, options };
@@ -139,9 +139,19 @@ describe('exportProductionOrdersPDF', () => {
     expect(Object.keys(options.columnStyles)).toHaveLength(options.head[0].length);
   });
 
-  it('ordena las órdenes bloqueadas de primero', () => {
-    const { options } = renderPdf([order({ id: 21 })], [order({ id: 22, estado: OrderStatus.BLOQUEADA })]);
+  it('excluye las órdenes bloqueadas del PDF', () => {
+    const { options } = renderPdf([
+      order({ id: 21 }),
+      order({ id: 22, estado: OrderStatus.BLOQUEADA }),
+    ]);
 
-    expect(options.body.map((row) => row[0])).toEqual(['ORD-0022', 'ORD-0021']);
+    expect(options.body.map((row) => row[0])).toEqual(['ORD-0021']);
+  });
+
+  it('no genera un PDF cuando solo recibe órdenes bloqueadas', () => {
+    exportProductionOrdersPDF([order({ estado: OrderStatus.BLOQUEADA })]);
+
+    expect(autoTableMock).not.toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
   });
 });
