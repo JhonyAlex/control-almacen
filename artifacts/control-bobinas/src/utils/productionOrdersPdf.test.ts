@@ -139,19 +139,19 @@ describe('exportProductionOrdersPDF', () => {
     expect(Object.keys(options.columnStyles)).toHaveLength(options.head[0].length);
   });
 
-  it('excluye las órdenes bloqueadas del PDF', () => {
+  it('incluye las órdenes bloqueadas en el PDF', () => {
     const { options } = renderPdf([
       order({ id: 21 }),
       order({ id: 22, estado: OrderStatus.BLOQUEADA }),
     ]);
 
-    expect(options.body.map((row) => row[0])).toEqual(['ORD-0021']);
+    expect(options.body.map((row) => row[0])).toEqual(['ORD-0021', 'ORD-0022']);
   });
 
-  it('no genera un PDF cuando solo recibe órdenes bloqueadas', () => {
+  it('genera un PDF cuando solo recibe órdenes bloqueadas', () => {
     exportProductionOrdersPDF([order({ estado: OrderStatus.BLOQUEADA })]);
 
-    expect(autoTableMock).not.toHaveBeenCalled();
-    expect(window.open).not.toHaveBeenCalled();
+    expect(autoTableMock).toHaveBeenCalledTimes(1);
+    expect(window.open).toHaveBeenCalledTimes(1);
   });
 });

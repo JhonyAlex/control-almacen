@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { OrderStatus, type ProductionOrder } from '@workspace/api-client-react';
+import { type ProductionOrder } from '@workspace/api-client-react';
 import { formatMeters } from '../lib/domain';
 
 const PDF_TABLE_WIDTH = 525;
@@ -66,12 +66,12 @@ const buildPdfFooter = (
 };
 
 /**
- * Genera el documento PDF con el listado de órdenes activas de producción
+ * Genera el documento PDF con el listado de órdenes de producción (incluidas las bloqueadas)
  * y lo abre de inmediato en una nueva pestaña del navegador para impresión/visualización.
  */
 export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
-  const activeOrders = (orders ?? []).filter((order) => order.estado !== OrderStatus.BLOQUEADA);
-  if (activeOrders.length === 0) {
+  const ordersToExport = orders ?? [];
+  if (ordersToExport.length === 0) {
     return;
   }
 
@@ -95,11 +95,11 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
   doc.setTextColor(100, 100, 100);
   doc.text('Órdenes de producción', tableHorizontalMargin, 42);
 
-  // Sub-subtítulo informativo detallando el conteo de órdenes activas
+  // Sub-subtítulo informativo detallando el conteo total de órdenes
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  const totalCount = activeOrders.length;
-  const subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden activa' : 'órdenes activas'}`;
+  const totalCount = ordersToExport.length;
+  const subtitleDetail = `${totalCount} ${totalCount === 1 ? 'orden' : 'órdenes'}`;
   doc.text(`Módulo 02 · Control de Fabricación (${subtitleDetail})`, tableHorizontalMargin, 54);
 
   // Fecha actual en la esquina superior derecha alineada con el margen de la tabla
@@ -124,7 +124,7 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
     'Creada',
   ];
 
-  const tableRows = activeOrders.map((order) => [
+  const tableRows = ordersToExport.map((order) => [
     `ORD-${String(order.id).padStart(4, '0')}`,
     order.estado,
     order.origen === 'GESTION_PEDIDOS' ? 'Nexus' : 'Manual',
@@ -186,7 +186,7 @@ export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
       }
 
       if (data.section === 'body') {
-        const order = activeOrders[data.row.index];
+        const order = ordersToExport[data.row.index];
 
         // Filas alternas para activas
         if (data.row.index % 2 === 1) {
