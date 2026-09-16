@@ -203,7 +203,7 @@ function Production({ canManage }: { canManage: boolean }) {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => exportProductionOrdersPDF([...orders, ...blockedOrders])}
+              onClick={() => exportProductionOrdersPDF([...blockedOrders, ...orders])}
               disabled={orders.length === 0 && blockedOrders.length === 0}
               className="pressable flex min-h-12 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-card px-4 text-sm font-semibold text-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
               title="Exportar órdenes a PDF"
