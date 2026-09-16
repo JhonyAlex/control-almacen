@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { type ProductionOrder } from '@workspace/api-client-react';
+import { OrderStatus, type ProductionOrder } from '@workspace/api-client-react';
 import { formatMeters } from '../lib/domain';
 
 const PDF_TABLE_WIDTH = 525;
@@ -68,9 +68,14 @@ const buildPdfFooter = (
 /**
  * Genera el documento PDF con el listado de órdenes de producción (incluidas las bloqueadas)
  * y lo abre de inmediato en una nueva pestaña del navegador para impresión/visualización.
+ *
+ * Las órdenes bloqueadas encabezan siempre el listado, independientemente del
+ * orden en que las reciba, porque son las que hay que revisar antes de seguir
+ * fabricando. Dentro de cada bloque se respeta el orden de entrada.
  */
 export const exportProductionOrdersPDF = (orders: ProductionOrder[]) => {
-  const ordersToExport = orders ?? [];
+  const blockedFirst = (order: ProductionOrder) => (order.estado === OrderStatus.BLOQUEADA ? 0 : 1);
+  const ordersToExport = [...(orders ?? [])].sort((a, b) => blockedFirst(a) - blockedFirst(b));
   if (ordersToExport.length === 0) {
     return;
   }

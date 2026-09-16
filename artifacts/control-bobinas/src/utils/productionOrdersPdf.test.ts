@@ -139,13 +139,29 @@ describe('exportProductionOrdersPDF', () => {
     expect(Object.keys(options.columnStyles)).toHaveLength(options.head[0].length);
   });
 
-  it('incluye las órdenes bloqueadas en el PDF', () => {
+  it('incluye las órdenes bloqueadas en el PDF y las coloca al inicio', () => {
     const { options } = renderPdf([
       order({ id: 21 }),
       order({ id: 22, estado: OrderStatus.BLOQUEADA }),
     ]);
 
-    expect(options.body.map((row) => row[0])).toEqual(['ORD-0021', 'ORD-0022']);
+    expect(options.body.map((row) => row[0])).toEqual(['ORD-0022', 'ORD-0021']);
+  });
+
+  it('mantiene el orden de entrada dentro de bloqueadas y dentro de activas', () => {
+    const { options } = renderPdf([
+      order({ id: 31 }),
+      order({ id: 32, estado: OrderStatus.BLOQUEADA }),
+      order({ id: 33 }),
+      order({ id: 34, estado: OrderStatus.BLOQUEADA }),
+    ]);
+
+    expect(options.body.map((row) => row[0])).toEqual([
+      'ORD-0032',
+      'ORD-0034',
+      'ORD-0031',
+      'ORD-0033',
+    ]);
   });
 
   it('genera un PDF cuando solo recibe órdenes bloqueadas', () => {
