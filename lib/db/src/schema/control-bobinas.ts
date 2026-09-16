@@ -162,6 +162,33 @@ export const authSessions = pgTable("auth_sessions", {
     .defaultNow(),
 });
 
+/**
+ * Audit trail for state-changing actions on a production order (blocked,
+ * unblocked, finalized, reopened) and for automatic groupings performed by
+ * the Nexus integration. `usuarioId` is null for actions taken by an
+ * automated process rather than a person.
+ */
+export const productionOrderEvents = pgTable(
+  "production_order_events",
+  {
+    id: serial("id").primaryKey(),
+    ordenId: integer("orden_id")
+      .notNull()
+      .references(() => productionOrders.id, { onDelete: "cascade" }),
+    usuarioId: integer("usuario_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    accion: text("accion").notNull(),
+    detalle: text("detalle"),
+    creadoEn: timestamp("creado_en", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("production_order_events_orden_id_idx").on(table.ordenId),
+  ],
+);
+
 export const insertProductionOrderSchema = createInsertSchema(productionOrders);
 export const insertProductionOrderPedidoSchema = createInsertSchema(
   productionOrderPedidos,
@@ -169,6 +196,9 @@ export const insertProductionOrderPedidoSchema = createInsertSchema(
 export const insertCoilSchema = createInsertSchema(coils);
 export const insertProductionOrderCoilAssignmentSchema = createInsertSchema(
   productionOrderCoilAssignments,
+);
+export const insertProductionOrderEventSchema = createInsertSchema(
+  productionOrderEvents,
 );
 export type ProductionOrder = typeof productionOrders.$inferSelect;
 export type ProductionOrderPedido = typeof productionOrderPedidos.$inferSelect;
@@ -179,3 +209,4 @@ export type ProductionOrderCoilAssignment =
   typeof productionOrderCoilAssignments.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;
+export type ProductionOrderEvent = typeof productionOrderEvents.$inferSelect;

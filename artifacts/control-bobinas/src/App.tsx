@@ -63,7 +63,7 @@ function AuthenticatedRouter({ user }: { user: User }) {
           <Route path="/">{() => <Home canManage={true} />}</Route>
           <Route path="/material" component={Material} />
           <Route path="/produccion">{() => <Production canManage={user.role === 'ADMIN'} />}</Route>
-          <Route path="/finalizadas" component={Finalized} />
+          <Route path="/finalizadas">{() => <Finalized canManage={user.role === 'ADMIN'} />}</Route>
           <Route path="/usuarios">{() => user.role === 'ADMIN' ? <Users /> : <NotFound />}</Route>
           <Route component={NotFound} />
         </Switch>

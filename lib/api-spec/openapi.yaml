@@ -373,6 +373,60 @@ paths:
           description: Only blocked orders can be manually finalized
         "404":
           description: Order not found
+        "409":
+          description: >-
+            The meter deficit changed since the caller read it (or was not
+            sent) and `forzar` was not set; body includes the current deficit
+  /orders/{id}/reopen:
+    post:
+      operationId: reopenOrder
+      tags: [orders]
+      summary: Reopen a finalized production order back to BLOQUEADA
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderReopenInput"
+      responses:
+        "200":
+          description: Reopened order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionOrder"
+        "400":
+          description: Only finalized orders can be reopened
+        "404":
+          description: Order not found
+  /orders/{id}/events:
+    get:
+      operationId: listOrderEvents
+      tags: [orders]
+      summary: List the audit trail of a production order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Order events, most recent first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionOrderEvent"
+        "404":
+          description: Order not found
   /orders/reorder:
     patch:
       operationId: reorderOrders
@@ -769,6 +823,23 @@ components:
       properties:
         nota:
           type: string
+        faltantesEsperados:
+          type: number
+          description: >-
+            Meter deficit the caller is showing to the operator. When it no
+            longer matches the freshly computed deficit (e.g. Nexus grouped a
+            pedido while the dialog was open) the request is rejected with 409
+            and the current deficit, so the operator confirms real numbers.
+        forzar:
+          type: boolean
+          description: >-
+            Finalize regardless of the deficit check. Used to confirm after a
+            409, when the operator has already seen the up-to-date deficit.
+    OrderReopenInput:
+      type: object
+      properties:
+        motivo:
+          type: string
     OrderReorderInput:
       type: object
       required: [orderIds]
@@ -898,6 +969,35 @@ components:
           format: date-time
         nota:
           type: ["string", "null"]
+    ProductionOrderEvent:
+      type: object
+      required: [id, ordenId, usuarioId, usuarioNombre, accion, detalle, creadoEn]
+      properties:
+        id:
+          type: number
+        ordenId:
+          type: number
+        usuarioId:
+          type: ["number", "null"]
+        usuarioNombre:
+          type: ["string", "null"]
+          description: Null when the action was taken by an automated process.
+        accion:
+          type: string
+          enum:
+            [
+              BLOQUEADA,
+              DESBLOQUEADA,
+              FINALIZADA_MANUAL,
+              FINALIZADA_AUTO,
+              REABIERTA,
+              PEDIDO_AGRUPADO,
+            ]
+        detalle:
+          type: ["string", "null"]
+        creadoEn:
+          type: string
+          format: date-time
     ManufacturedCoilInput:
       type: object
       required: [ordenId, metros]

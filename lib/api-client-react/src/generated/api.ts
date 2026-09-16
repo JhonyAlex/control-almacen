@@ -35,9 +35,11 @@ import type {
   OrderBlockInput,
   OrderFinalizeInput,
   OrderInput,
+  OrderReopenInput,
   OrderReorderInput,
   PasswordInput,
   ProductionOrder,
+  ProductionOrderEvent,
   RemnantInput,
   SessionResponse,
   UpdateCoilInput,
@@ -1473,6 +1475,155 @@ export const useFinalizeOrder = <TError = ErrorType<void>,
       > => {
       return useMutation(getFinalizeOrderMutationOptions(options));
     }
+
+export const getReopenOrderUrl = (id: number,) => {
+
+
+
+
+  return `/api/orders/${id}/reopen`
+}
+
+/**
+ * @summary Reopen a finalized production order back to BLOQUEADA
+ */
+export const reopenOrder = async (id: number,
+    orderReopenInput?: OrderReopenInput, options?: Parameters<typeof customFetch>[1]): Promise<ProductionOrder> => {
+
+  return customFetch<ProductionOrder>(getReopenOrderUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderReopenInput)
+  }
+);}
+
+
+
+
+
+export const getReopenOrderMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenOrder>>, TError,{id: number;data?: BodyType<OrderReopenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reopenOrder>>, TError,{id: number;data?: BodyType<OrderReopenInput>}, TContext> => {
+
+const mutationKey = ['reopenOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reopenOrder>>, {id: number;data?: BodyType<OrderReopenInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reopenOrder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReopenOrderMutationResult = NonNullable<Awaited<ReturnType<typeof reopenOrder>>>
+    export type ReopenOrderMutationBody = BodyType<OrderReopenInput> | undefined
+    export type ReopenOrderMutationError = ErrorType<void>
+
+    /**
+ * @summary Reopen a finalized production order back to BLOQUEADA
+ */
+export const useReopenOrder = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenOrder>>, TError,{id: number;data?: BodyType<OrderReopenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reopenOrder>>,
+        TError,
+        {id: number;data?: BodyType<OrderReopenInput>},
+        TContext
+      > => {
+      return useMutation(getReopenOrderMutationOptions(options));
+    }
+
+export const getListOrderEventsUrl = (id: number,) => {
+
+
+
+
+  return `/api/orders/${id}/events`
+}
+
+/**
+ * @summary List the audit trail of a production order
+ */
+export const listOrderEvents = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ProductionOrderEvent[]> => {
+
+  return customFetch<ProductionOrderEvent[]>(getListOrderEventsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOrderEventsQueryKey = (id: number,) => {
+    return [
+    `/api/orders/${id}/events`
+    ] as const;
+    }
+
+
+export const getListOrderEventsQueryOptions = <TData = Awaited<ReturnType<typeof listOrderEvents>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOrderEventsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrderEvents>>> = ({ signal }) => listOrderEvents(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOrderEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOrderEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listOrderEvents>>>
+export type ListOrderEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List the audit trail of a production order
+ */
+
+export function useListOrderEvents<TData = Awaited<ReturnType<typeof listOrderEvents>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOrderEventsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getReorderOrdersUrl = () => {
 

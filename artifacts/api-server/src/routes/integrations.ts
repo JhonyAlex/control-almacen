@@ -2,7 +2,11 @@ import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@workspace/db";
-import { productionOrders, productionOrderPedidos } from "@workspace/db/schema";
+import {
+  productionOrderEvents,
+  productionOrders,
+  productionOrderPedidos,
+} from "@workspace/db/schema";
 import { requireIntegrationAuth } from "../middlewares/integration-auth";
 import { logger } from "../lib/logger";
 import {
@@ -150,6 +154,13 @@ router.post(
             pedidoId: payload.pedidoId,
             numeroPedidoCliente: payload.numeroPedidoCliente,
             metros: String(payload.metros),
+          });
+
+          await tx.insert(productionOrderEvents).values({
+            ordenId: compatibleOrder.id,
+            usuarioId: null,
+            accion: "PEDIDO_AGRUPADO",
+            detalle: `Pedido ${payload.numeroPedidoCliente || payload.pedidoId} agrupado automáticamente (+${payload.metros} m)`,
           });
 
           // Recalculate total meters with PostgreSQL SUM

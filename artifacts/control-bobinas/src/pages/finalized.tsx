@@ -1,21 +1,65 @@
 import { useState } from 'react';
-import { Archive, CheckCircle2, ChevronDown, Layers, Package, RefreshCw, TriangleAlert } from 'lucide-react';
-import { OrderStatus, getListOrderCoilsQueryKey, useListOrderCoils, useListOrders, type ProductionOrder } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Archive, CheckCircle2, ChevronDown, Layers, Package, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
+import { OrderStatus, getListOrderCoilsQueryKey, getListOrdersQueryKey, useListOrderCoils, useListOrders, useReopenOrder, type ProductionOrder } from '@workspace/api-client-react';
+import { Field, inputClass, Modal } from '@/components/modal';
 import { formatDate, formatMeters, formatPedidosSummary } from '@/lib/domain';
 
-function Finalized() {
+const serverErrorMessage = (error: unknown): string | null => {
+  const data = (error as { data?: unknown } | null)?.data;
+  if (data && typeof data === 'object' && 'error' in data) {
+    const message = (data as { error?: unknown }).error;
+    if (typeof message === 'string' && message.length > 0) return message;
+  }
+  return null;
+};
+
+function Finalized({ canManage = false }: { canManage?: boolean }) {
+  const queryClient = useQueryClient();
   const ordersQuery = useListOrders({ status: OrderStatus.FINALIZADA });
+  const reopenOrder = useReopenOrder();
   const orders = ordersQuery.data ?? [];
-  return <div className="industrial-grid min-h-[calc(100dvh-72px)]"><div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10"><div className="load-in mb-9 flex items-end justify-between gap-4"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Módulo 04 / trazabilidad</p><h1 className="mt-2 font-display text-[clamp(2.7rem,6vw,4.7rem)] font-semibold uppercase leading-[.88] tracking-wide">Órdenes finalizadas</h1><p className="mt-3 max-w-xl text-sm text-muted-foreground">Historial de órdenes completadas y sus bobinas fabricadas.</p></div><span className="font-data text-[11px] font-semibold uppercase tracking-[.15em] text-muted-foreground">{orders.length} órdenes</span></div>{ordersQuery.isLoading && <div className="space-y-3"><div className="h-28 animate-pulse rounded-xl bg-muted" /><div className="h-28 animate-pulse rounded-xl bg-muted" /></div>}{ordersQuery.isError && !ordersQuery.isLoading && <div className="flex flex-col items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6" role="alert"><div className="flex items-center gap-3 text-destructive"><TriangleAlert size={21} /><p className="font-semibold">No se pudo cargar el historial</p></div><button type="button" onClick={() => ordersQuery.refetch()} className="pressable flex min-h-11 items-center gap-2 rounded-lg bg-destructive px-4 text-sm font-semibold text-destructive-foreground"><RefreshCw size={16} /> Reintentar</button></div>}{!ordersQuery.isLoading && !ordersQuery.isError && (orders.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center"><Archive className="mx-auto text-muted-foreground" size={32} /><h2 className="mt-3 font-display text-3xl uppercase">Sin historial todavía</h2><p className="mt-1 text-sm text-muted-foreground">Las órdenes completadas aparecerán aquí.</p></div> : <div className="space-y-3">{orders.map((order) => <FinalizedRow key={order.id} order={order} />)}</div>)}</div></div>;
+  const [reopenTarget, setReopenTarget] = useState<ProductionOrder | null>(null);
+  const [reopenMotivo, setReopenMotivo] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const onReopen = () => {
+    if (!reopenTarget) return;
+    setActionError(null);
+    reopenOrder.mutate({ id: reopenTarget.id, data: { motivo: reopenMotivo.trim() } }, {
+      onSuccess: () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.FINALIZADA }) }),
+          queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey({ status: OrderStatus.BLOQUEADA }) }),
+        ]);
+        const targetId = reopenTarget.id;
+        setReopenTarget(null);
+        setReopenMotivo('');
+        setNotice(`Orden ORD-${String(targetId).padStart(4, '0')} reabierta y movida a órdenes bloqueadas.`);
+      },
+      onError: (error) => setActionError(serverErrorMessage(error) ?? 'No se pudo reabrir la orden. Inténtalo de nuevo.'),
+    });
+  };
+
+  return <div className="industrial-grid min-h-[calc(100dvh-72px)]"><div className="mx-auto max-w-[1480px] px-4 py-7 sm:px-7 lg:px-10 lg:py-10"><div className="load-in mb-9 flex items-end justify-between gap-4"><div><p className="font-data text-[10px] font-semibold uppercase tracking-[.2em] text-primary">Módulo 04 / trazabilidad</p><h1 className="mt-2 font-display text-[clamp(2.7rem,6vw,4.7rem)] font-semibold uppercase leading-[.88] tracking-wide">Órdenes finalizadas</h1><p className="mt-3 max-w-xl text-sm text-muted-foreground">Historial de órdenes completadas y sus bobinas fabricadas.</p></div><span className="font-data text-[11px] font-semibold uppercase tracking-[.15em] text-muted-foreground">{orders.length} órdenes</span></div>
+    {notice && <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#a9c9b1] bg-[#eaf4eb] px-4 py-3 text-sm font-medium text-[#27613d]" role="status"><span className="h-2 w-2 rounded-full bg-[#4c9a71]" />{notice}<button type="button" className="ml-auto text-xs uppercase tracking-wider underline" onClick={() => setNotice(null)}>Cerrar</button></div>}
+    {ordersQuery.isLoading && <div className="space-y-3"><div className="h-28 animate-pulse rounded-xl bg-muted" /><div className="h-28 animate-pulse rounded-xl bg-muted" /></div>}{ordersQuery.isError && !ordersQuery.isLoading && <div className="flex flex-col items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6" role="alert"><div className="flex items-center gap-3 text-destructive"><TriangleAlert size={21} /><p className="font-semibold">No se pudo cargar el historial</p></div><button type="button" onClick={() => ordersQuery.refetch()} className="pressable flex min-h-11 items-center gap-2 rounded-lg bg-destructive px-4 text-sm font-semibold text-destructive-foreground"><RefreshCw size={16} /> Reintentar</button></div>}{!ordersQuery.isLoading && !ordersQuery.isError && (orders.length === 0 ? <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center"><Archive className="mx-auto text-muted-foreground" size={32} /><h2 className="mt-3 font-display text-3xl uppercase">Sin historial todavía</h2><p className="mt-1 text-sm text-muted-foreground">Las órdenes completadas aparecerán aquí.</p></div> : <div className="space-y-3">{orders.map((order) => <FinalizedRow key={order.id} order={order} canManage={canManage} onReopen={() => { setActionError(null); setReopenTarget(order); setReopenMotivo(''); }} />)}</div>)}</div>
+
+    <Modal open={!!reopenTarget} onClose={() => { setReopenTarget(null); setReopenMotivo(''); setActionError(null); }} onSubmit={(event) => { event.preventDefault(); onReopen(); }} eyebrow="Reapertura" title="Reabrir orden finalizada" submitLabel={reopenOrder.isPending ? 'Reabriendo…' : 'Reabrir orden'} submitDisabled={reopenOrder.isPending}>
+      {reopenTarget && <div><div className="rounded-lg border border-border bg-muted/50 p-4"><p className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Orden ORD-{String(reopenTarget.id).padStart(4, '0')}</p><p className="mt-2 flex flex-wrap items-center gap-1.5 font-semibold">{reopenTarget.ancho} mm · {reopenTarget.micras} µ · Camisa {reopenTarget.camisa}</p><p className="mt-1 text-sm text-muted-foreground">{formatMeters(reopenTarget.metrosPendientes)} m pendientes de fabricar</p>{reopenTarget.pedidosRelacionados && reopenTarget.pedidosRelacionados.length > 0 && <p className="mt-2 text-xs font-semibold text-primary">{formatPedidosSummary(reopenTarget.pedidosRelacionados)}</p>}</div><p className="mt-4 text-sm leading-relaxed text-muted-foreground">La orden volverá a la lista de <strong>órdenes bloqueadas</strong>, para que la desbloquees o finalices de nuevo cuando corresponda.</p><div className="mt-4"><Field label="Motivo" hint="opcional, queda registrado"><input name="motivo" type="text" className={inputClass} value={reopenMotivo} onChange={(e) => setReopenMotivo(e.target.value)} placeholder="Ej. Pedido agrupado tras finalizar por error" /></Field></div>{actionError && <p className="mt-4 text-sm text-destructive" role="alert">{actionError}</p>}</div>}
+    </Modal>
+  </div>;
 }
 
-function FinalizedRow({ order }: { order: ProductionOrder }) {
+function FinalizedRow({ order, canManage = false, onReopen }: { order: ProductionOrder; canManage?: boolean; onReopen?: () => void }) {
   const [open, setOpen] = useState(false);
   const coilsQuery = useListOrderCoils(order.id, { query: { enabled: open, queryKey: getListOrderCoilsQueryKey(order.id) } });
   const pedidos = order.pedidosRelacionados ?? [];
   return (
     <div className="rounded-xl border border-border bg-card" data-testid={`row-finalized-order-${order.id}`}>
-      <button type="button" onClick={() => setOpen(!open)} className="flex min-h-24 w-full items-center gap-4 px-4 py-5 text-left sm:px-6">
+      <div className="flex min-h-24 w-full items-center gap-4 px-4 py-5 sm:px-6">
+      <button type="button" onClick={() => setOpen(!open)} className="flex min-h-24 flex-1 items-center gap-4 text-left">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eaf4eb] text-[#347349]"><CheckCircle2 size={19} /></span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
@@ -63,6 +107,8 @@ function FinalizedRow({ order }: { order: ProductionOrder }) {
         </div>
         <ChevronDown size={22} className={`shrink-0 text-muted-foreground transition ${open ? 'rotate-180' : ''}`} />
       </button>
+      {canManage && onReopen && <button type="button" onClick={onReopen} className="pressable flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-primary/25 px-3 text-xs font-semibold text-primary hover:bg-muted" data-testid={`button-reopen-order-${order.id}`} title="Reabrir orden finalizada"><RotateCcw size={16} /> Reabrir</button>}
+      </div>
       {open && (
         <div className="border-t border-border px-4 pb-4 sm:px-6">
           <p className="py-3 font-data text-[10px] font-semibold uppercase tracking-[.15em] text-muted-foreground">Bobinas de esta orden</p>

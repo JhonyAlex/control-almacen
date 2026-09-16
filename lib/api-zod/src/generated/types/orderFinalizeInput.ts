@@ -8,4 +8,8 @@
 
 export interface OrderFinalizeInput {
   nota?: string;
+  /** Meter deficit the caller is showing to the operator. When it no longer matches the freshly computed deficit (e.g. Nexus grouped a pedido while the dialog was open) the request is rejected with 409 and the current deficit, so the operator confirms real numbers. */
+  faltantesEsperados?: number;
+  /** Finalize regardless of the deficit check. Used to confirm after a 409, when the operator has already seen the up-to-date deficit. */
+  forzar?: boolean;
 }

@@ -50,6 +50,13 @@
       "when": 1788947082876,
       "tag": "0006_factory_coils_ordering_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789486290307,
+      "tag": "0007_order_events_audit",
+      "breakpoints": true
     }
   ]
 }

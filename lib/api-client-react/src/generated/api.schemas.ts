@@ -129,6 +129,14 @@ export interface OrderBlockInput {
 
 export interface OrderFinalizeInput {
   nota?: string;
+  /** Meter deficit the caller is showing to the operator. When it no longer matches the freshly computed deficit (e.g. Nexus grouped a pedido while the dialog was open) the request is rejected with 409 and the current deficit, so the operator confirms real numbers. */
+  faltantesEsperados?: number;
+  /** Finalize regardless of the deficit check. Used to confirm after a 409, when the operator has already seen the up-to-date deficit. */
+  forzar?: boolean;
+}
+
+export interface OrderReopenInput {
+  motivo?: string;
 }
 
 export interface OrderReorderInput {
@@ -204,6 +212,34 @@ export interface ProductionOrder {
   finalizadaEn: string | null;
   /** @nullable */
   nota: string | null;
+}
+
+export type ProductionOrderEventAccion = typeof ProductionOrderEventAccion[keyof typeof ProductionOrderEventAccion];
+
+
+export const ProductionOrderEventAccion = {
+  BLOQUEADA: 'BLOQUEADA',
+  DESBLOQUEADA: 'DESBLOQUEADA',
+  FINALIZADA_MANUAL: 'FINALIZADA_MANUAL',
+  FINALIZADA_AUTO: 'FINALIZADA_AUTO',
+  REABIERTA: 'REABIERTA',
+  PEDIDO_AGRUPADO: 'PEDIDO_AGRUPADO',
+} as const;
+
+export interface ProductionOrderEvent {
+  id: number;
+  ordenId: number;
+  /** @nullable */
+  usuarioId: number | null;
+  /**
+     * Null when the action was taken by an automated process.
+     * @nullable
+     */
+  usuarioNombre: string | null;
+  accion: ProductionOrderEventAccion;
+  /** @nullable */
+  detalle: string | null;
+  creadoEn: string;
 }
 
 export interface ManufacturedCoilInput {

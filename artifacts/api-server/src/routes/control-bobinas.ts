@@ -18,16 +18,21 @@ import {
   FinalizeOrderParams,
   ListInventoryQueryParams,
   ListOrderCoilsParams,
+  ListOrderEventsParams,
   ListOrdersQueryParams,
   ReorderOrdersBody,
+  ReopenOrderBody,
+  ReopenOrderParams,
   RestoreInventoryItemParams,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import {
   coils,
   productionOrderCoilAssignments,
+  productionOrderEvents,
   productionOrders,
   productionOrderPedidos,
+  users,
 } from "@workspace/db/schema";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import {
@@ -38,6 +43,7 @@ import {
 import {
   autoAssignStockToOrder,
   computeOrderCoveredMeters,
+  type DbTransaction,
   getAssignmentsByCoilIds,
   toAssignmentInfo,
 } from "../services/coil-stock-assignment";
@@ -192,6 +198,28 @@ const orderView = (
   finalizadaEn: order.finalizadaEn?.toISOString() ?? null,
   nota: order.nota ?? null,
 });
+
+/**
+ * Records a state-changing action on a production order for the audit
+ * trail (who blocked/unblocked/finalized/reopened it, or that Nexus grouped
+ * a pedido into it). `usuarioId` null means an automated process.
+ */
+async function logOrderEvent(
+  tx: DbTransaction,
+  event: {
+    ordenId: number;
+    usuarioId: number | null;
+    accion: string;
+    detalle?: string | null;
+  },
+) {
+  await tx.insert(productionOrderEvents).values({
+    ordenId: event.ordenId,
+    usuarioId: event.usuarioId,
+    accion: event.accion,
+    detalle: event.detalle ?? null,
+  });
+}
 
 async function ordersWithTotals(status?: string) {
   const orders = await db
@@ -570,6 +598,12 @@ router.patch("/orders/:id/blocked", requireAdmin, async (req, res, next) => {
         .where(eq(productionOrders.id, id))
         .returning();
 
+      await logOrderEvent(tx, {
+        ordenId: id,
+        usuarioId: req.authUser?.id ?? null,
+        accion: blocked ? "BLOQUEADA" : "DESBLOQUEADA",
+      });
+
       const related = await tx
         .select()
         .from(productionOrderPedidos)
@@ -653,6 +687,23 @@ router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
         maximumFractionDigits: 0,
       }).format(faltantes);
 
+      // A pedido can be grouped into this order (by Nexus) between the
+      // moment the operator opened the finalize dialog and the moment they
+      // confirm it, silently raising the deficit they saw. Finalizing with
+      // meters missing is the normal case here, so only stop when the number
+      // the operator is looking at no longer matches the fresh one: then they
+      // confirm again (`forzar`) over the up-to-date figure.
+      const expected = body.faltantesEsperados;
+      const deficitChanged =
+        expected === undefined || Math.abs(expected - faltantes) > 0.01;
+      if (faltantes > 0 && deficitChanged && !body.forzar) {
+        return {
+          kind: "PENDING_CONFIRMATION" as const,
+          faltantes,
+          faltantesStr,
+        };
+      }
+
       let notaFinal: string;
       if (body.nota && body.nota.trim().length > 0) {
         const trimmed = body.nota.trim();
@@ -672,6 +723,13 @@ router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
         })
         .where(eq(productionOrders.id, id))
         .returning();
+
+      await logOrderEvent(tx, {
+        ordenId: id,
+        usuarioId: req.authUser?.id ?? null,
+        accion: "FINALIZADA_MANUAL",
+        detalle: notaFinal,
+      });
 
       const related = await tx
         .select()
@@ -706,7 +764,148 @@ router.post("/orders/:id/finalize", requireAdmin, async (req, res, next) => {
       return;
     }
 
+    if (result.kind === "PENDING_CONFIRMATION") {
+      res.status(409).json({
+        error: `Los metros faltantes de esta orden son ahora ${result.faltantesStr} m. Confirma para finalizarla con ese dato.`,
+        code: "FINALIZE_METERS_DEFICIT",
+        faltantes: result.faltantes,
+      });
+      return;
+    }
+
     res.json(orderView(result.order, result.total, result.pedidos));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/orders/:id/reopen", requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = ReopenOrderParams.parse({ id: Number(req.params.id) });
+    const body = req.body ? ReopenOrderBody.parse(req.body) : {};
+
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(productionOrders)
+        .where(eq(productionOrders.id, id))
+        .for("update");
+
+      if (!current) return { kind: "MISSING" as const };
+
+      if (current.estado !== "FINALIZADA") {
+        return { kind: "NOT_FINALIZED" as const };
+      }
+
+      const motivo = body.motivo?.trim();
+      // Keep the finalize note: it says how many meters were left unmade, and
+      // that is still the history of this order after reopening it.
+      const notaReapertura = motivo
+        ? `Reabierta: ${motivo}`
+        : "Reabierta manualmente";
+      const notaPrevia = current.nota?.trim();
+      const notaFinal = notaPrevia
+        ? `${notaPrevia} · ${notaReapertura}`
+        : notaReapertura;
+
+      // Reopen into BLOQUEADA rather than ACTIVA: the operator must
+      // consciously unblock it, instead of it silently re-entering the
+      // active/Nexus-grouping flow the moment it reopens.
+      const [updated] = await tx
+        .update(productionOrders)
+        .set({
+          estado: "BLOQUEADA",
+          finalizadaEn: null,
+          nota: notaFinal,
+        })
+        .where(eq(productionOrders.id, id))
+        .returning();
+
+      await logOrderEvent(tx, {
+        ordenId: id,
+        usuarioId: req.authUser?.id ?? null,
+        accion: "REABIERTA",
+        detalle: motivo ?? null,
+      });
+
+      const total = await computeOrderCoveredMeters(tx, id);
+      const related = await tx
+        .select()
+        .from(productionOrderPedidos)
+        .where(eq(productionOrderPedidos.ordenId, id))
+        .orderBy(asc(productionOrderPedidos.vinculadoEn));
+
+      return {
+        kind: "UPDATED" as const,
+        order: updated,
+        total: numeric(total),
+        pedidos: related.map((r) => ({
+          id: r.id,
+          pedidoId: r.pedidoId,
+          numeroPedidoCliente: r.numeroPedidoCliente,
+          metros: numeric(r.metros),
+          vinculadoEn: r.vinculadoEn.toISOString(),
+        })),
+      };
+    });
+
+    if (result.kind === "MISSING") {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+
+    if (result.kind === "NOT_FINALIZED") {
+      res.status(400).json({
+        error: "Solo se pueden reabrir órdenes finalizadas",
+      });
+      return;
+    }
+
+    res.json(orderView(result.order, result.total, result.pedidos));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/orders/:id/events", async (req, res, next) => {
+  try {
+    const { id } = ListOrderEventsParams.parse({ id: Number(req.params.id) });
+
+    const [order] = await db
+      .select({ id: productionOrders.id })
+      .from(productionOrders)
+      .where(eq(productionOrders.id, id));
+    if (!order) {
+      res.status(404).json({ error: "La orden no existe" });
+      return;
+    }
+
+    const rows = await db
+      .select({
+        id: productionOrderEvents.id,
+        ordenId: productionOrderEvents.ordenId,
+        usuarioId: productionOrderEvents.usuarioId,
+        usuarioNombre: users.nombre,
+        accion: productionOrderEvents.accion,
+        detalle: productionOrderEvents.detalle,
+        creadoEn: productionOrderEvents.creadoEn,
+      })
+      .from(productionOrderEvents)
+      .leftJoin(users, eq(users.id, productionOrderEvents.usuarioId))
+      .where(eq(productionOrderEvents.ordenId, id))
+      .orderBy(desc(productionOrderEvents.creadoEn));
+
+    res.json(
+      rows.map((row) => ({
+        id: row.id,
+        ordenId: row.ordenId,
+        usuarioId: row.usuarioId,
+        usuarioNombre: row.usuarioNombre,
+        accion: row.accion,
+        detalle: row.detalle,
+        creadoEn: row.creadoEn.toISOString(),
+      })),
+    );
   } catch (error) {
     next(error);
   }
@@ -795,6 +994,12 @@ router.post("/inventory/coils", async (req, res, next) => {
           .update(productionOrders)
           .set({ estado: "FINALIZADA", finalizadaEn: new Date() })
           .where(eq(productionOrders.id, order.id));
+        await logOrderEvent(tx, {
+          ordenId: order.id,
+          usuarioId: req.authUser?.id ?? null,
+          accion: "FINALIZADA_AUTO",
+          detalle: "Auto-finalizada al cubrir los metros necesarios",
+        });
       }
       const relatedRecords = await tx
         .select()

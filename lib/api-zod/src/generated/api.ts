@@ -388,7 +388,9 @@ export const FinalizeOrderParams = zod.object({
 })
 
 export const FinalizeOrderBody = zod.object({
-  "nota": zod.string().optional()
+  "nota": zod.string().optional(),
+  "faltantesEsperados": zod.number().optional().describe('Meter deficit the caller is showing to the operator. When it no longer matches the freshly computed deficit (e.g. Nexus grouped a pedido while the dialog was open) the request is rejected with 409 and the current deficit, so the operator confirms real numbers.'),
+  "forzar": zod.boolean().optional().describe('Finalize regardless of the deficit check. Used to confirm after a 409, when the operator has already seen the up-to-date deficit.')
 })
 
 export const FinalizeOrderResponse = zod.object({
@@ -413,6 +415,60 @@ export const FinalizeOrderResponse = zod.object({
   "finalizadaEn": zod.coerce.date().nullable(),
   "nota": zod.string().nullable()
 })
+
+
+/**
+ * @summary Reopen a finalized production order back to BLOQUEADA
+ */
+export const ReopenOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReopenOrderBody = zod.object({
+  "motivo": zod.string().optional()
+})
+
+export const ReopenOrderResponse = zod.object({
+  "id": zod.number(),
+  "ancho": zod.number(),
+  "micras": zod.number(),
+  "camisa": zod.string(),
+  "material": zod.string(),
+  "metrosNecesarios": zod.number(),
+  "metrosFabricados": zod.number(),
+  "metrosPendientes": zod.number(),
+  "estado": zod.enum(['ACTIVA', 'BLOQUEADA', 'FINALIZADA']),
+  "origen": zod.enum(['MANUAL', 'GESTION_PEDIDOS']),
+  "pedidosRelacionados": zod.array(zod.object({
+  "id": zod.number(),
+  "pedidoId": zod.string(),
+  "numeroPedidoCliente": zod.string(),
+  "metros": zod.number(),
+  "vinculadoEn": zod.coerce.date()
+})),
+  "creadoEn": zod.coerce.date(),
+  "finalizadaEn": zod.coerce.date().nullable(),
+  "nota": zod.string().nullable()
+})
+
+
+/**
+ * @summary List the audit trail of a production order
+ */
+export const ListOrderEventsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListOrderEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "ordenId": zod.number(),
+  "usuarioId": zod.number().nullable(),
+  "usuarioNombre": zod.string().nullable().describe('Null when the action was taken by an automated process.'),
+  "accion": zod.enum(['BLOQUEADA', 'DESBLOQUEADA', 'FINALIZADA_MANUAL', 'FINALIZADA_AUTO', 'REABIERTA', 'PEDIDO_AGRUPADO']),
+  "detalle": zod.string().nullable(),
+  "creadoEn": zod.coerce.date()
+})
+export const ListOrderEventsResponse = zod.array(ListOrderEventsResponseItem)
 
 
 /**
