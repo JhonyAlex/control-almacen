@@ -693,7 +693,10 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
     assert.equal(res.status, 400);
   });
 
-  it("E3. PATCH material: sin sesión → 401 y con usuario no admin → 403", async () => {
+  // La edición directa de material en almacén está abierta a cualquier usuario
+  // autenticado desde "edicion directa de metros, material y camisa" (0ea1404),
+  // igual que PATCH /inventory/:id: solo se exige sesión.
+  it("E3. PATCH material: sin sesión → 401 y con usuario no admin → 200", async () => {
     const coilId = await seedCoil({});
     const noSession = await fetch(
       `${baseUrl}/api/inventory/${coilId}/material`,
@@ -734,7 +737,9 @@ describe("Autoasignación de stock y edición de material contra PostgreSQL real
         body: JSON.stringify({ material: "OPP" }),
       },
     );
-    assert.equal(userRes.status, 403);
+    assert.equal(userRes.status, 200);
+    const userBody = (await userRes.json()) as { material: string };
+    assert.equal(userBody.material, "OPP");
   });
 
   it("E4. PATCH material: bobina EN FÁBRICA → 409", async () => {
