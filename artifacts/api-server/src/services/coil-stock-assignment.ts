@@ -100,11 +100,23 @@ export async function computeOrderCoveredMeters(
  *
  * Matching uses the exact same normalization as NEXUS grouping.
  */
+/**
+ * Flag de control para la autoasignación de restos de stock a órdenes de producción.
+ * Desactivado por defecto a petición de operaciones.
+ */
+export const AUTO_ASSIGN_STOCK_ENABLED =
+  process.env.ENABLE_AUTO_ASSIGN_STOCK === "true";
+
 export async function autoAssignStockToOrder(
   tx: DbTransaction,
   order: OrderStockSpec,
   origen: string,
 ): Promise<AutoAssignStockResult> {
+  // Automatización desactivada: los restos de almacén ya no se autoasignan a órdenes de producción
+  if (!AUTO_ASSIGN_STOCK_ENABLED) {
+    return EMPTY_RESULT;
+  }
+
   const covered = await computeOrderCoveredMeters(tx, order.orderId);
   const needed = numeric(order.metrosNecesarios);
   const deficit = needed - covered;

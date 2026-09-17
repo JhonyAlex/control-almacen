@@ -15,7 +15,6 @@ import {
   normalizeMaterialComparison,
   normalizeMaterialStorage,
 } from "../lib/nexus-order-normalizer";
-import { autoAssignStockToOrder } from "../services/coil-stock-assignment";
 
 const router: IRouter = Router();
 
@@ -182,21 +181,6 @@ router.post(
             })
             .where(eq(productionOrders.id, compatibleOrder.id));
 
-          // The enlarged order may consume additional compatible stock; only
-          // the new deficit is covered, previous assignments are not recounted.
-          await autoAssignStockToOrder(
-            tx,
-            {
-              orderId: compatibleOrder.id,
-              ancho: compatibleOrder.ancho,
-              micras: compatibleOrder.micras,
-              material: compatibleOrder.material,
-              camisa: compatibleOrder.camisa,
-              metrosNecesarios: total,
-            },
-            "AUTO_STOCK_NEXUS",
-          );
-
           return {
             status: 200 as const,
             body: {
@@ -244,20 +228,6 @@ router.post(
           .update(productionOrders)
           .set({ metrosNecesarios: total })
           .where(eq(productionOrders.id, newOrder.id));
-
-        // Cover the brand new order with compatible stock when possible.
-        await autoAssignStockToOrder(
-          tx,
-          {
-            orderId: newOrder.id,
-            ancho: newOrder.ancho,
-            micras: newOrder.micras,
-            material: newOrder.material,
-            camisa: newOrder.camisa,
-            metrosNecesarios: total,
-          },
-          "AUTO_STOCK_NEXUS",
-        );
 
         return {
           status: 201 as const,

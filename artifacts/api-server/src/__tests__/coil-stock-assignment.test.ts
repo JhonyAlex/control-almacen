@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { selectCoilsForDeficit } from "../lib/coil-stock-selection";
+import {
+  AUTO_ASSIGN_STOCK_ENABLED,
+  autoAssignStockToOrder,
+} from "../services/coil-stock-assignment";
 
 describe("selectCoilsForDeficit", () => {
   it("deficit cero o negativo no selecciona nada", () => {
@@ -116,5 +120,36 @@ describe("selectCoilsForDeficit", () => {
       4500,
     );
     assert.deepEqual(a, b);
+  });
+});
+
+describe("autoAssignStockToOrder (desactivada por defecto)", () => {
+  it("retorna EMPTY_RESULT sin realizar operaciones cuando AUTO_ASSIGN_STOCK_ENABLED es false", async () => {
+    assert.equal(AUTO_ASSIGN_STOCK_ENABLED, false);
+    const fakeTx: any = {
+      select: () => {
+        throw new Error("No debería consultar la BD");
+      },
+      insert: () => {
+        throw new Error("No debería insertar en la BD");
+      },
+    };
+    const result = await autoAssignStockToOrder(
+      fakeTx,
+      {
+        orderId: 1,
+        ancho: 1200,
+        micras: 30,
+        material: "OPP",
+        camisa: 400,
+        metrosNecesarios: 5000,
+      },
+      "AUTO_STOCK",
+    );
+    assert.deepEqual(result, {
+      assignedCount: 0,
+      assignedMeters: 0,
+      assignments: [],
+    });
   });
 });

@@ -41,7 +41,6 @@ import {
   normalizeMaterialComparison,
 } from "../lib/nexus-order-normalizer";
 import {
-  autoAssignStockToOrder,
   computeOrderCoveredMeters,
   type DbTransaction,
   getAssignmentsByCoilIds,
@@ -324,26 +323,8 @@ router.post("/orders", requireAdmin, async (req, res, next) => {
           orden: sql`coalesce((select min(${productionOrders.orden}) from ${productionOrders} where ${productionOrders.estado} = 'ACTIVA'), 0) - 1`,
         })
         .returning();
-      // Use compatible stock coils before assuming anything must be produced.
-      await autoAssignStockToOrder(
-        tx,
-        {
-          orderId: created.id,
-          ancho: created.ancho,
-          micras: created.micras,
-          material: created.material,
-          camisa: created.camisa,
-          metrosNecesarios: created.metrosNecesarios,
-        },
-        "AUTO_STOCK",
-      );
-      // Re-read: the assignment may have finalized the order in this same tx.
-      const [fresh] = await tx
-        .select()
-        .from(productionOrders)
-        .where(eq(productionOrders.id, created.id));
       const covered = await computeOrderCoveredMeters(tx, created.id);
-      return { order: fresh, covered };
+      return { order: created, covered };
     });
     res.status(201).json(orderView(order, covered, []));
   } catch (error) {
@@ -464,24 +445,6 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
         })
         .where(eq(productionOrders.id, id))
         .returning();
-      // An enlarged order can consume additional compatible stock.
-      await autoAssignStockToOrder(
-        tx,
-        {
-          orderId: updatedOrder.id,
-          ancho: updatedOrder.ancho,
-          micras: updatedOrder.micras,
-          material: updatedOrder.material,
-          camisa: updatedOrder.camisa,
-          metrosNecesarios: updatedOrder.metrosNecesarios,
-        },
-        "AUTO_STOCK",
-      );
-      // Re-read: the assignment may have finalized the order in this same tx.
-      const [fresh] = await tx
-        .select()
-        .from(productionOrders)
-        .where(eq(productionOrders.id, id));
       const related = await tx
         .select()
         .from(productionOrderPedidos)
@@ -490,7 +453,7 @@ router.patch("/orders/:id", requireAdmin, async (req, res, next) => {
       const coveredNow = await computeOrderCoveredMeters(tx, id);
       return {
         kind: "UPDATED" as const,
-        order: fresh,
+        order: updatedOrder,
         covered: coveredNow,
         pedidos: related.map((r) => ({
           id: r.id,
